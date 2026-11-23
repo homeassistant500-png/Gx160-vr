@@ -2,7 +2,7 @@
 
 Simulatore didattico in realtà virtuale del motore **Honda GX160** (monocilindrico 4 tempi OHV), da usare con il visore **Meta Quest 2 / 3 / 3S**. È pensato per la lezione di classe terza sul funzionamento del motore a quattro tempi (ciclo Otto teorico).
 
-**Prof. Giuseppe Fumuso** — Meccatronica, IIS "Orso Mario Corbino", Partinico (PA)
+**Prof. Giuseppe Fumuso** — Meccatronica
 
 ▶ **Apri il simulatore:** https://homeassistant500-png.github.io/Gx160-vr/
 
@@ -19,10 +19,11 @@ Simulatore didattico in realtà virtuale del motore **Honda GX160** (monocilindr
 - **Isolare** i gruppi di componenti: manovellismo, distribuzione, accensione, lubrificazione.
 - Leggere dal **pannello di comando** i valori in tempo reale: fase, angolo, distanza dal PMS, volume nel cilindro, stato di valvole e candela, diagramma p–V qualitativo.
 - Mostrare o nascondere le **etichette** sui componenti e i **termini in inglese**.
+- Studiare la **dispensa direttamente nel visore**: il pulsante **DISPENSA** apre un pannello con la teoria da sfogliare a pagine e il quiz con correzione immediata.
 
 ## Dispensa per lo studio
 
-La dispensa interattiva **«Struttura e funzionamento del motore a quattro tempi»** si apre da PC, tablet o smartphone (non serve il visore):
+La dispensa interattiva **«Struttura e funzionamento del motore a quattro tempi»** si apre da PC, tablet o smartphone:
 
 https://homeassistant500-png.github.io/Gx160-vr/dispensa-motore-4-tempi.html
 
@@ -32,6 +33,8 @@ Contiene quattro schede:
 2. **Simulatore** — sezione animata del GX160 con diagramma della distribuzione e diagramma p–V, teorici e reali.
 3. **Combustione** — dosatura della miscela aria-benzina e andamento della pressione con il battito in testa.
 4. **Esercitazioni e quiz** — esercizi su tre livelli e quiz finale con correzione immediata.
+
+Nel visore, il pulsante **DISPENSA** del pannello dei comandi apre un secondo pannello alla destra del banco con la **teoria** (sezioni 1.1–1.7, a pagine) e il **quiz**. Il pulsante **APRI LA DISPENSA COMPLETA** esce dalla realtà virtuale e apre questa pagina nel browser del Quest; con «indietro» si torna al simulatore.
 
 ## Come si apre il simulatore
 
