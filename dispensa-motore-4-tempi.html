@@ -1,0 +1,1271 @@
+<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Struttura e funzionamento del motore a quattro tempi</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>:root{color-scheme:light;box-sizing:border-box}body{margin:0;padding:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>
+/* Layout: quaderno tecnico a schede. Il colore segue la convenzione dei manometri: rosso = alta pressione, blu = bassa pressione. */
+:root{
+  --bg:#edf1f4; --surface:#ffffff; --sunk:#f4f7f9; --ink:#15222e; --muted:#566878; --line:#cdd7df;
+  --accent:#0d68ad; --accent-ink:#ffffff;
+  --hot:#d2391f; --warm:#df8610; --cool:#149cb8; --cold:#2456c8;
+  --live:#d9480f; --ok:#1c8f4e; --crit:#c62828; --lamp:#f2bd0c;
+  --f-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0d151c; --surface:#15202a; --sunk:#101a22; --ink:#e5edf3; --muted:#93a5b4; --line:#2b3a46;
+  --accent:#5cb5f1; --accent-ink:#06121b;
+  --hot:#ff6c50; --warm:#ffb13d; --cool:#4dcfe5; --cold:#7099ff;
+  --live:#ff8b40; --ok:#4bc981; --crit:#ff6e6e; --lamp:#ffd84a; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0d151c; --surface:#15202a; --sunk:#101a22; --ink:#e5edf3; --muted:#93a5b4; --line:#2b3a46;
+  --accent:#5cb5f1; --accent-ink:#06121b;
+  --hot:#ff6c50; --warm:#ffb13d; --cool:#4dcfe5; --cold:#7099ff;
+  --live:#ff8b40; --ok:#4bc981; --crit:#ff6e6e; --lamp:#ffd84a; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55}
+.wrap{max-width:1120px;margin:0 auto;padding-block:28px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.head{display:flex;flex-wrap:wrap;align-items:center;gap:18px 26px}
+.head>div{flex:1 1 320px;min-width:0}
+.logo{width:152px;height:auto;flex:none;background:#fdfdfd;border:1px solid var(--line);border-radius:6px;padding:6px}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(34px,6vw,54px);line-height:1;margin:6px 0 8px;letter-spacing:.01em;text-wrap:balance}
+.lede{color:var(--muted);max-width:62ch;margin:0}
+h2{font-family:var(--f-display);font-weight:600;font-size:28px;line-height:1.1;margin:0 0 10px;text-wrap:balance}
+h3{font-family:var(--f-display);font-weight:600;font-size:21px;margin:0 0 6px}
+p{margin:0 0 12px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:22px 0 20px;border-bottom:2px solid var(--line)}
+.tabs button{font:600 17px var(--f-display);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);background:none;border:0;border-bottom:3px solid transparent;margin-bottom:-2px;padding:10px 14px;cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tabs button:hover{color:var(--ink)}
+button:focus-visible,input:focus-visible,summary:focus-visible,[role="button"]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.page{display:flex;flex-direction:column;gap:22px}
+.sheet{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:22px}
+.prose{max-width:70ch}
+.prose ul{margin:0 0 12px;padding-left:20px}
+.prose li{margin-bottom:4px}
+.formula{font-family:var(--f-mono);font-size:15px;background:var(--sunk);border-left:3px solid var(--accent);padding:10px 14px;margin:10px 0 14px;overflow-x:auto;white-space:nowrap}
+.formula small{color:var(--muted);font-size:13px;margin-left:14px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 12px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+td.num,th.num{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+figure{margin:0}
+figcaption{font-size:13px;color:var(--muted);margin-top:6px;max-width:70ch}
+canvas{display:block;width:100%;height:auto;max-width:100%}
+.wide canvas,.wide svg{min-width:680px}
+.wide #schema svg{min-width:1180px}
+.wide #phTheory,.wide #phSim{min-width:900px}
+.note{font-size:14px;color:var(--muted);border:1px dashed var(--line);padding:10px 14px;border-radius:4px}
+.dot{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:-1px;margin-right:6px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--muted);margin-top:10px}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px 22px}
+.ctl label{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--muted)}
+
+.ctl output{white-space:nowrap;font-family:var(--f-mono);color:var(--ink);font-weight:600}
+.ctl input[type=range]{width:100%;accent-color:var(--accent)}
+.cmd{display:flex;flex-direction:column;gap:8px}
+.grp{font:600 12px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:8px 0 0}
+.grp:first-child{margin-top:0}
+.bgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 14px;align-items:center}
+.bgrid .btn{width:100%;text-align:center}
+.btnrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{font:600 14px var(--f-body);color:var(--ink);background:var(--sunk);border:1px solid var(--line);border-radius:4px;padding:8px 14px;cursor:pointer}
+.btn:disabled{opacity:.6;cursor:default}
+#p-cella .btn[aria-pressed="true"]{background:var(--crit);border-color:var(--crit);color:var(--accent-ink);opacity:1}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.check{display:flex;gap:8px;align-items:center;font-size:14px}
+.check input{accent-color:var(--crit);width:17px;height:17px}
+.two{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:22px;align-items:start}
+.two>*{min-width:0}
+.two.even{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch}
+@media (max-width:860px){.two{grid-template-columns:minmax(0,1fr)}}
+.tracer{font-size:14px;background:var(--sunk);padding:10px 14px;border-radius:4px;min-height:64px}
+.tracer b{font-family:var(--f-display);font-size:18px;letter-spacing:.02em}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:14px}
+.kpi div{background:var(--sunk);padding:8px 10px;border-radius:4px}
+.kpi span{display:block;font-size:12px;color:var(--muted)}
+.kpi b{font:600 17px var(--f-mono);font-variant-numeric:tabular-nums}
+.status{font-size:15px;padding:12px 14px;border-radius:4px;background:var(--sunk);border-left:4px solid var(--ok)}
+.status.warn{border-left-color:var(--warm)} .status.crit{border-left-color:var(--crit)} .status.off{border-left-color:var(--muted)}
+.gauge{margin-bottom:12px}
+.gauge .gl{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
+.gauge .gl{gap:12px}
+.gauge .gl b{white-space:nowrap;font-family:var(--f-mono);color:var(--ink)}
+.gauge .tr{position:relative;height:14px;background:var(--sunk);border:1px solid var(--line);border-radius:2px;margin-top:4px}
+.gauge .fl{position:absolute;inset:0 auto 0 0;border-radius:1px}
+.gauge .mk{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink)}
+.gauge .ml{font:11px var(--f-mono);color:var(--muted);margin-top:5px}
+/* schema elettrico */
+svg{display:block;width:100%;height:auto}
+svg text{font-family:var(--f-body);fill:var(--ink)}
+svg .t-mono{font-family:var(--f-mono)}
+svg .t-sub{fill:var(--muted);font-size:11px}
+svg .t-live{fill:var(--live);font-weight:600}
+.w{stroke:var(--muted);stroke-width:2.4;fill:none;stroke-linecap:round}
+.w.live{stroke:var(--live);stroke-width:3}
+.w.neu{stroke:var(--cold);opacity:.75}
+.dash{stroke:var(--muted);stroke-width:1.2;stroke-dasharray:4 3;fill:none}
+.box{fill:var(--surface);stroke:var(--ink);stroke-width:1.6}
+.box.on{fill:color-mix(in srgb,var(--live) 22%,var(--surface));stroke:var(--live)}
+.box.fault{stroke:var(--crit);fill:color-mix(in srgb,var(--crit) 16%,var(--surface))}
+.box.lamp.on{fill:var(--lamp);stroke:var(--lamp)}
+.box.lamp.on.alarm{fill:var(--crit);stroke:var(--crit)}
+.ring{fill:none;stroke:var(--live);stroke-width:3;stroke-dasharray:12 9}
+.spin{transform-box:fill-box;transform-origin:center;animation:spin 1.1s linear infinite}
+
+.spin.m2{animation-duration:var(--m2dur,1.1s)}
+
+.blink{animation:blink .8s steps(2,start) infinite}
+@keyframes blink{to{opacity:.3}}
+#p-cella.paused .spin,#p-cella.paused .blink{animation-play-state:paused}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:6s}}
+.room{fill:color-mix(in srgb,var(--cool) 12%,var(--surface));stroke:var(--ink);stroke-width:6}
+.blade{fill:var(--muted)}
+.glow{fill:var(--lamp);opacity:.28}
+details{border:1px solid var(--line);border-radius:4px;margin-top:12px;background:var(--sunk)}
+summary{cursor:pointer;padding:10px 14px;font-weight:600}
+details>div{padding:4px 14px 14px}
+.lvl{display:inline-block;font:600 12px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;padding:2px 8px;border-radius:2px;border:1px solid currentColor;margin-bottom:8px}
+.lvl.b{color:var(--ok)} .lvl.i{color:var(--warm)} .lvl.a{color:var(--crit)} .lvl.l{color:var(--accent)}
+ol.steps{padding-left:20px;margin:0} ol.steps li{margin-bottom:10px}
+
+/* aggiunte per la dispensa psicrometrica */
+:root{--vio:#7a3fc2;--grn:#2f8a3f;--org:#d06a12}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){--vio:#b993ff;--grn:#6fd17f;--org:#ffa04d} }
+:root[data-theme="dark"]{--vio:#b993ff;--grn:#6fd17f;--org:#ffa04d}
+.num-in{width:100%;margin-top:4px;font:500 14px var(--f-mono);padding:5px 8px;border:1px solid var(--line);border-radius:4px;background:var(--sunk);color:var(--ink)}
+.fix{font-size:14px;border-left:3px solid var(--warm);background:var(--sunk);padding:8px 12px;border-radius:2px;display:block;margin:8px 0}
+li .fix{display:inline;padding:1px 6px;border-left-width:3px}
+#trBtns .btn[aria-pressed="true"],#clMode .btn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.calc .formula{white-space:normal}
+.wide #cvD,.wide #cvT,.wide #cvC{min-width:720px}
+#cvD{cursor:crosshair}
+.q{border-top:1px solid var(--line);padding:14px 0}
+.q:first-of-type{border-top:0}
+.q p{font-weight:600}
+.opts{display:grid;gap:6px}
+.opts button{text-align:left;font:400 15px var(--f-body);color:var(--ink);background:var(--sunk);border:1px solid var(--line);border-radius:4px;padding:8px 12px;cursor:pointer}
+.opts button:hover:not(:disabled){border-color:var(--accent)}
+.opts button.ok{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 16%,var(--surface))}
+.opts button.ko{border-color:var(--crit);background:color-mix(in srgb,var(--crit) 14%,var(--surface))}
+.opts button:disabled{cursor:default}
+.qfb{font-size:14px;margin-top:8px;color:var(--muted)}
+.qfb b{color:var(--ink)}
+.score{font:600 22px var(--f-display);margin-top:12px}
+
+#trCalc .formula,#clCalc .formula,#exercises .formula{white-space:normal}
+</style><style>
+.simwrap{
+  --bg:#f3f1ec; --panel:#ffffff; --ink:#1d232b; --muted:#5d6670; --line:#d9d5cc;
+  --accent:#d9480f; --accent-soft:#fde4d6;
+  --f1:#3b82c4; --f2:#1f4e8c; --f3:#e8590c; --f4:#7a7f87;
+  --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+}
+.simwrap *{box-sizing:border-box}
+.simwrap,.simwrap{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',system-ui,Segoe UI,Arial,sans-serif}
+.simwrap .simhead{padding:12px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;border-bottom:1px solid var(--line);background:#fbfaf7}
+.simwrap .simhead .logo{height:84px;width:auto;flex:none;background:#fdfdfd;border:1px solid var(--line);border-radius:6px;padding:4px}
+.simwrap .simhead .tt{display:flex;flex-direction:column;gap:4px}
+.simwrap .simhead h1{font-size:20px;margin:0;font-weight:700;letter-spacing:.2px}
+.simwrap .simhead h1 span{color:var(--accent)}
+.simwrap .simhead .sub{color:var(--muted);font-size:14px}
+.simwrap .simmain{display:grid;grid-template-columns:minmax(360px,1fr) 440px;gap:18px;padding:18px 22px;max-width:1280px;margin:0 auto}
+@media (max-width:980px){.simwrap .simmain{grid-template-columns:1fr}}
+.simwrap .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.simwrap .stage{align-self:start;padding:8px}
+.simwrap .dist{border-top:1px solid var(--line);margin-top:8px;padding:12px 8px 4px}
+.simwrap canvas#dist{width:100%;height:auto;display:block}
+.simwrap .dpair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.simwrap .dpair canvas{width:100%;height:auto;display:block;background:#fbfaf7;border:1px solid #ece9e2;border-radius:8px}
+.simwrap .evt{margin-top:8px;font-size:13.5px}
+.simwrap .evt th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:600;padding:4px 0;border-bottom:1px solid var(--line)}
+.simwrap .evt td{padding:4px 6px 4px 0}
+.simwrap .evt td.m{font-family:var(--mono)}
+.simwrap .evt td:last-child,.simwrap .evt th:last-child{text-align:right}
+.simwrap .evt tr.hot td{background:var(--accent-soft)}
+.simwrap .evt input{width:64px;font:inherit;font-family:var(--mono);padding:2px 4px;border:1px solid var(--line);border-radius:5px}
+.simwrap canvas#eng{width:100%;height:auto;display:block;cursor:pointer}
+.simwrap .side{display:flex;flex-direction:column;gap:14px}
+.simwrap .phase-head{display:flex;align-items:center;gap:12px}
+.simwrap .phase-num{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:22px;flex:none}
+.simwrap .phase-name{font-size:24px;font-weight:700;line-height:1.1}
+.simwrap .phase-stroke{color:var(--muted);font-size:14px;margin-top:2px}
+.simwrap .phase-text{font-size:15px;line-height:1.45;margin:10px 0 8px}
+.simwrap .valves{display:flex;gap:8px;flex-wrap:wrap}
+.simwrap .pill{font-size:13px;padding:4px 10px;border-radius:99px;border:1px solid var(--line);font-family:var(--mono)}
+.simwrap .pill.on{background:var(--accent-soft);border-color:var(--accent);color:#8a2c06;font-weight:600}
+.simwrap .bar{position:relative;height:30px;border-radius:6px;overflow:hidden;display:flex;margin-top:6px}
+.simwrap .bar div{flex:1;color:#fff;font-size:12px;display:grid;place-items:center;font-weight:600}
+.simwrap .cursor{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--ink);border-radius:2px;box-shadow:0 0 0 2px #fff}
+.simwrap .ticks{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:3px}
+.simwrap .vals{display:grid;grid-template-columns:1fr;gap:6px 14px;margin-top:4px}
+.simwrap .vals div{display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding:3px 0;font-size:14px}
+.simwrap .vals b{font-family:var(--mono);font-weight:600}
+.simwrap h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+.simwrap .ctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.simwrap button{font:inherit;font-size:14px;border:1px solid var(--line);background:#fff;border-radius:7px;padding:7px 12px;cursor:pointer;color:var(--ink)}
+.simwrap button:hover{border-color:var(--ink)}
+.simwrap button.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+.simwrap button.sel{background:var(--accent);border-color:var(--accent);color:#fff}
+.simwrap input[type=range]{width:100%;accent-color:var(--accent)}
+.simwrap label.chk{font-size:14px;display:flex;align-items:center;gap:6px;cursor:pointer}
+.simwrap .info{min-height:92px}
+.simwrap .info .t{font-weight:700;font-size:17px;color:var(--accent)}
+.simwrap .info p{margin:6px 0 0;font-size:14.5px;line-height:1.45}
+.simwrap table{width:100%;border-collapse:collapse;font-size:13.5px}
+.simwrap td{padding:4px 0;border-bottom:1px solid #eee}
+.simwrap td:last-child{text-align:right;font-family:var(--mono)}
+.simwrap .note{font-size:12px;color:var(--muted);line-height:1.4;margin-top:8px}
+.simwrap canvas#pv{width:100%;height:auto;display:block}
+.simwrap .quiz-q{font-size:15px;margin-bottom:8px}
+.simwrap .quiz-fb{font-size:14px;margin-top:8px;min-height:20px;font-weight:600}
+.simwrap .row{display:flex;gap:10px;align-items:center}
+.simwrap .speed button{padding:5px 9px;font-size:13px}
+.simwrap .simfoot{max-width:1280px;margin:0 auto;padding:0 22px 22px;font-size:12px;color:var(--muted)}
+/* simulatore incorporato: palette fissa chiara */
+.simwrap{border-radius:4px;padding:0}
+.simwrap .simmain{padding:0;max-width:none}
+.simwrap h3{font-family:var(--f-body,'IBM Plex Sans',sans-serif)}
+.simwrap .simfoot{padding:10px 0 0;max-width:none}
+.simwrap .card{background:#fff}
+.dist-wrap{background:#f3f1ec;padding:14px;border:1px solid var(--line);border-radius:4px}
+.wide4 svg{min-width:760px}
+table.phases td{width:25%;font-size:13.5px;line-height:1.5}
+.simgrid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;align-items:start}
+.simgrid>.stage{padding:10px 10px 14px}
+.simgrid>aside{position:sticky;top:10px}
+@media (max-width:900px){.simgrid{grid-template-columns:minmax(0,1fr)}.simgrid>aside{position:static}}
+.simwrap .dist{margin-top:6px;padding:12px 2px 0}
+.simwrap .dist h3{margin:0 0 8px;font-size:12.5px}
+.simwrap .dpair{gap:8px}
+.simwrap .evt{font-size:12.5px}
+.simwrap .evt td{padding:3px 6px 3px 0}
+.simwrap .evt input{width:56px}
+@media (max-width:560px){.simwrap .dpair{grid-template-columns:1fr}}
+</style>
+</head><body>
+<div class="wrap">
+<header class="head">
+  <img class="logo" src="data:image/webp;base64,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" alt="Logo Prof. Giuseppe Fumuso, Meccatronica" width="456" height="390">
+  <div>
+  <p class="eyebrow">Dispensa interattiva · Prof. Giuseppe Fumuso · Meccatronica</p>
+  <h1>Struttura e funzionamento del motore a quattro tempi</h1>
+  <p class="lede">Classificazione dei motori, struttura e ciclo Otto a 4 tempi, distribuzione e diagramma p–V, combustione e battito in testa. Esempio reale: il motore Honda GX160 del laboratorio.</p>
+  </div>
+  <button class="btn" id="bTheme" type="button" style="align-self:flex-start">Tema scuro</button>
+</header>
+<nav class="tabs" role="tablist" aria-label="Sezioni della dispensa">
+  <button role="tab" id="t-teoria" data-tab="teoria" aria-selected="true">1 · Teoria</button>
+  <button role="tab" id="t-sim" data-tab="sim" aria-selected="false">2 · Simulatore</button>
+  <button role="tab" id="t-comb" data-tab="comb" aria-selected="false">3 · Combustione</button>
+  <button role="tab" id="t-esercizi" data-tab="esercizi" aria-selected="false">4 · Esercitazioni e quiz</button>
+</nav>
+<section class="page" id="p-teoria" role="tabpanel" aria-labelledby="t-teoria">
+
+  <div class="sheet"><div class="prose">
+    <h2>1.1 Classificazione dei motori a combustione</h2>
+    <p>I motori a combustione si raggruppano secondo criteri diversi. Ogni motore reale si descrive scegliendo una voce per ciascun criterio.</p>
+  </div>
+  <div class="scroll"><table>
+    <thead><tr><th>Criterio</th><th>Tipi</th><th>Che cosa li distingue</th></tr></thead>
+    <tbody>
+      <tr><td><b>Formazione della miscela e accensione</b></td><td>Ciclo Otto</td><td>Benzina o gas; miscela formata all'esterno o all'interno del cilindro; combustione avviata da una fonte esterna, la <b>candela</b> (accensione comandata).</td></tr>
+      <tr><td></td><td>Diesel</td><td>Gasolio; miscela formata all'interno del cilindro; il combustibile si accende da solo nell'aria molto compressa (<b>autoaccensione</b>).</td></tr>
+      <tr><td><b>Modo di funzionamento</b></td><td>4 tempi</td><td>Ricambio dei gas a circuito chiuso, con valvole. Un ciclo = <b>4 corse</b> del pistone = <b>2 giri</b> dell'albero motore.</td></tr>
+      <tr><td></td><td>2 tempi</td><td>Ricambio dei gas a circuito aperto. Un ciclo = 2 corse = 1 giro.</td></tr>
+      <tr><td><b>Disposizione dei cilindri</b></td><td>In linea, a V, boxer, VR</td><td>Vedi lo schema qui sotto.</td></tr>
+      <tr><td><b>Movimento dei pistoni</b></td><td>Alternato, rotativo</td><td>Il pistone va avanti e indietro (alternato) oppure ruota (motore rotativo).</td></tr>
+      <tr><td><b>Raffreddamento</b></td><td>A liquido, ad aria</td><td>Il calore è portato via da un liquido refrigerante o direttamente dall'aria che lambisce le alette.</td></tr>
+    </tbody>
+  </table></div>
+  <figure style="margin-top:16px">
+    <svg viewBox="0 0 880 210" role="img" aria-label="Disposizione dei cilindri: in linea, boxer, a V, VR">
+      <g transform="translate(20,20)">
+        <rect x="0" y="40" width="40" height="70" class="box"/><rect x="50" y="40" width="40" height="70" class="box"/><rect x="100" y="40" width="40" height="70" class="box"/><rect x="150" y="40" width="40" height="70" class="box"/>
+        <line x1="-6" y1="128" x2="196" y2="128" class="w"/><text x="95" y="160" text-anchor="middle">In linea</text><text x="95" y="178" text-anchor="middle" class="t-sub">cilindri affiancati su una fila</text>
+      </g>
+      <g transform="translate(250,20)">
+        <rect x="0" y="62" width="70" height="36" class="box"/><rect x="110" y="62" width="70" height="36" class="box"/>
+        <circle cx="90" cy="80" r="10" class="box"/><text x="90" y="160" text-anchor="middle">Boxer</text><text x="90" y="178" text-anchor="middle" class="t-sub">cilindri contrapposti a 180°</text>
+      </g>
+      <g transform="translate(490,20)">
+        <g transform="rotate(-45 80 110)"><rect x="60" y="20" width="40" height="80" class="box"/></g>
+        <g transform="rotate(45 80 110)"><rect x="60" y="20" width="40" height="80" class="box"/></g>
+        <circle cx="80" cy="110" r="10" class="box"/><text x="80" y="22" text-anchor="middle" class="t-sub">90°</text>
+        <text x="80" y="160" text-anchor="middle">A V</text><text x="80" y="178" text-anchor="middle" class="t-sub">due file di cilindri inclinate</text>
+      </g>
+      <g transform="translate(700,20)">
+        <g transform="rotate(-7.5 70 115)"><rect x="40" y="25" width="34" height="80" class="box"/></g>
+        <g transform="rotate(7.5 70 115)"><rect x="70" y="25" width="34" height="80" class="box"/></g>
+        <circle cx="70" cy="115" r="9" class="box"/><text x="70" y="18" text-anchor="middle" class="t-sub">15°</text>
+        <text x="70" y="160" text-anchor="middle">VR</text><text x="70" y="178" text-anchor="middle" class="t-sub">V molto stretta, una sola testata</text>
+      </g>
+    </svg>
+    <figcaption>Schema semplificato delle disposizioni dei cilindri citate nel testo (angoli indicativi come nella figura del libro: 90° per il V, 15° per il VR).</figcaption>
+  </figure>
+  
+  </div>
+
+  <div class="sheet"><div class="prose">
+    <h2>1.2 Il motore a ciclo Otto</h2>
+    <p>Il motore a ciclo Otto è una <b>macchina di potenza a combustione</b>. Bruciando il carburante trasforma l'<b>energia chimica</b> in <b>energia termica</b> (calore) e poi, attraverso il moto di uno o più pistoni, in <b>energia meccanica</b> disponibile sull'albero motore.</p>
+    <div class="formula" style="white-space:normal">energia chimica (carburante) → energia termica (combustione) → energia meccanica (albero motore)</div>
+  </div></div>
+
+  <div class="sheet"><div class="prose">
+    <h2>1.3 Struttura del motore</h2>
+    <p>Il motore è formato da <b>quattro gruppi costruttivi</b> principali, a cui si aggiungono i dispositivi ausiliari.</p>
+  </div>
+  <div class="scroll"><table>
+    <thead><tr><th>Gruppo</th><th>Componenti (dal testo)</th><th>Nel GX160</th></tr></thead>
+    <tbody>
+      <tr><td><b>Corpo motore</b> (monoblocco)</td><td>Coperchio valvole, testata, cilindri (blocco cilindri), basamento, coppa dell'olio</td><td>Un solo cilindro con canna in ghisa e alette; coperchio dei bilancieri</td></tr>
+      <tr><td><b>Manovellismo</b></td><td>Pistone, biella, albero a manovelle (albero motore)</td><td>Pistone con 3 fasce, biella con paletta sbattitore, albero con contrappeso</td></tr>
+      <tr><td><b>Sistema di distribuzione</b></td><td>Valvole, molle valvola, bilancieri, albero dei bilancieri, albero a camme, ingranaggi di comando, catena o cinghia di comando</td><td>Distribuzione <b>OHV</b>: albero a camme nel basamento comandato da ingranaggi, punterie, aste e bilancieri</td></tr>
+      <tr><td><b>Sistema di miscelazione</b></td><td>Impianto di iniezione, collettore di aspirazione</td><td>Carburatore e condotto di aspirazione</td></tr>
+      <tr><td><b>Dispositivi ausiliari</b></td><td>Impianti di accensione, lubrificazione, raffreddamento, scarico, sovralimentazione</td><td>Accensione a magnete, lubrificazione a sbattimento, raffreddamento ad aria, marmitta; nessuna sovralimentazione</td></tr>
+    </tbody>
+  </table></div>
+  
+  </div>
+
+  <div class="sheet"><div class="prose">
+    <h2>1.4 Funzionamento: le 4 fasi del ciclo di lavoro</h2>
+    <p>Le 4 fasi del ciclo sono <b>aspirazione, compressione, espansione e scarico</b>. Un ciclo di lavoro si svolge in <b>2 giri</b> dell'albero motore, cioè <b>720° di angolo di manovella</b> (°AM).</p>
+    <p>Le sigle usate: <b>VA</b> valvola di aspirazione, <b>VS</b> valvola di scarico, <b>Aa/Ac</b> apertura e chiusura della VA, <b>Sa/Sc</b> apertura e chiusura della VS, <b>PMS/PMI</b> punto morto superiore e inferiore.</p>
+  </div>
+<figure style="margin:14px 0 16px"><div class="scroll wide4"><svg viewBox="0 0 1000 370" role="img" aria-label="Le 4 fasi del ciclo di lavoro: aspirazione, compressione, espansione, scarico, con stato delle valvole, verso del pistone e posizione della manovella"><g><text x="125" y="22" text-anchor="middle" style="font-weight:600;fill:#3b82c4">1ª fase · Aspirazione</text><text x="87" y="42" text-anchor="middle" class="t-sub" style="fill:#3b82c4;font-weight:600">VA aperta</text><text x="163" y="42" text-anchor="middle" class="t-sub" style="fill:var(--muted);font-weight:400">VS chiusa</text><rect x="63" y="50" width="124" height="22" fill="#cfd5db" stroke="#2b333c" stroke-width="1.4"/><rect x="70" y="72" width="110" height="75.0501691242024" fill="rgba(59,130,196,.35)"/><line x1="69" y1="72" x2="69" y2="194" stroke="#2b333c" stroke-width="5"/><line x1="181" y1="72" x2="181" y2="194" stroke="#2b333c" stroke-width="5"/><path d="M97 53 V77 L88 81 H110 L101 77 V53Z" fill="#3b82c4" stroke="#1d232b" stroke-width="1"/><path d="M149 44 V68 L140 72 H162 L153 68 V44Z" fill="#8f99a3" stroke="#1d232b" stroke-width="1"/><rect x="121" y="46" width="8" height="26" fill="#eef0f2" stroke="#1d232b" stroke-width="1"/><line x1="125" y1="167.0501691242024" x2="161.252311481466" y2="270.90473046962796" stroke="#4b5560" stroke-width="7" stroke-linecap="round"/><rect x="72" y="147.0501691242024" width="106" height="36" fill="#c3c9cf" stroke="#1d232b" stroke-width="1.4"/><line x1="72" y1="154.0501691242024" x2="178" y2="154.0501691242024" stroke="#1d232b"/><line x1="72" y1="159.0501691242024" x2="178" y2="159.0501691242024" stroke="#1d232b"/><circle cx="125" cy="167.0501691242024" r="5" fill="#fff" stroke="#1d232b"/><path d="M155 155.0501691242024 v18 m-6 -7 l6 8 l6 -8" fill="none" stroke="#3b82c4" stroke-width="3"/><line x1="183" y1="84" x2="201" y2="84" class="dash"/><text x="204" y="88" class="t-sub t-mono">PMS</text><line x1="183" y1="164" x2="201" y2="164" class="dash"/><text x="204" y="168" class="t-sub t-mono">PMI</text><circle cx="125" cy="254" r="50" fill="none" stroke="var(--line)" stroke-width="1.5"/><path d="M125.0 204.0 A50 50 0 0 1 125.0 304.0" fill="none" stroke="#3b82c4" stroke-width="5"/><line x1="111.4" y1="212.2" x2="107.7" y2="200.7" stroke="var(--ink)" stroke-width="2"/><text x="104.3" y="194.3" text-anchor="middle" class="t-sub t-mono" style="fill:var(--ink)">Aa</text><line x1="101.7" y1="291.3" x2="95.3" y2="301.5" stroke="var(--ink)" stroke-width="2"/><text x="89.5" y="314.8" text-anchor="middle" class="t-sub t-mono" style="fill:var(--ink)">Ac</text><line x1="125.0" y1="198.0" x2="125.0" y2="210.0" stroke="var(--ink)" stroke-width="2"/><text x="125" y="318" text-anchor="middle" class="t-sub t-mono">PMI</text><line x1="125" y1="254" x2="161.3" y2="270.9" stroke="#4b5560" stroke-width="5"/><circle cx="125" cy="254" r="5" fill="#1d232b"/><circle cx="161.3" cy="270.9" r="5" fill="#fff" stroke="#1d232b"/></g><g><text x="375" y="22" text-anchor="middle" style="font-weight:600;fill:#1f4e8c">2ª fase · Compressione</text><text x="337" y="42" text-anchor="middle" class="t-sub" style="fill:var(--muted);font-weight:400">VA chiusa</text><text x="413" y="42" text-anchor="middle" class="t-sub" style="fill:var(--muted);font-weight:400">VS chiusa</text><rect x="313" y="50" width="124" height="22" fill="#cfd5db" stroke="#2b333c" stroke-width="1.4"/><rect x="320" y="72" width="110" height="79.93646773063705" fill="rgba(31,78,140,.75)"/><line x1="319" y1="72" x2="319" y2="194" stroke="#2b333c" stroke-width="5"/><line x1="431" y1="72" x2="431" y2="194" stroke="#2b333c" stroke-width="5"/><path d="M347 44 V68 L338 72 H360 L351 68 V44Z" fill="#8f99a3" stroke="#1d232b" stroke-width="1"/><path d="M399 44 V68 L390 72 H412 L403 68 V44Z" fill="#8f99a3" stroke="#1d232b" stroke-width="1"/><rect x="371" y="46" width="8" height="26" fill="#eef0f2" stroke="#1d232b" stroke-width="1"/><line x1="375" y1="171.93646773063705" x2="342.23391822844036" y2="276.9430574540419" stroke="#4b5560" stroke-width="7" stroke-linecap="round"/><rect x="322" y="151.93646773063705" width="106" height="36" fill="#c3c9cf" stroke="#1d232b" stroke-width="1.4"/><line x1="322" y1="158.93646773063705" x2="428" y2="158.93646773063705" stroke="#1d232b"/><line x1="322" y1="163.93646773063705" x2="428" y2="163.93646773063705" stroke="#1d232b"/><circle cx="375" cy="171.93646773063705" r="5" fill="#fff" stroke="#1d232b"/><path d="M405 179.93646773063705 v-18 m-6 7 l6 -8 l6 8" fill="none" stroke="#1f4e8c" stroke-width="3"/><circle cx="375" cy="254" r="50" fill="none" stroke="var(--line)" stroke-width="1.5"/><path d="M375.0 304.0 A50 50 0 0 1 375.0 204.0" fill="none" stroke="#1f4e8c" stroke-width="5"/><line x1="375.0" y1="198.0" x2="375.0" y2="210.0" stroke="var(--ink)" stroke-width="2"/><text x="375" y="318" text-anchor="middle" class="t-sub t-mono">PMI</text><line x1="375" y1="254" x2="342.2" y2="276.9" stroke="#4b5560" stroke-width="5"/><circle cx="375" cy="254" r="5" fill="#1d232b"/><circle cx="342.2" cy="276.9" r="5" fill="#fff" stroke="#1d232b"/></g><g><text x="625" y="22" text-anchor="middle" style="font-weight:600;fill:#e8590c">3ª fase · Espansione</text><text x="587" y="42" text-anchor="middle" class="t-sub" style="fill:var(--muted);font-weight:400">VA chiusa</text><text x="663" y="42" text-anchor="middle" class="t-sub" style="fill:var(--muted);font-weight:400">VS chiusa</text><rect x="563" y="50" width="124" height="22" fill="#cfd5db" stroke="#2b333c" stroke-width="1.4"/><rect x="570" y="72" width="110" height="30.64247600996913" fill="rgba(232,89,12,.75)"/><line x1="569" y1="72" x2="569" y2="194" stroke="#2b333c" stroke-width="5"/><line x1="681" y1="72" x2="681" y2="194" stroke="#2b333c" stroke-width="5"/><path d="M597 44 V68 L588 72 H610 L601 68 V44Z" fill="#8f99a3" stroke="#1d232b" stroke-width="1"/><path d="M649 44 V68 L640 72 H662 L653 68 V44Z" fill="#8f99a3" stroke="#1d232b" stroke-width="1"/><rect x="621" y="46" width="8" height="26" fill="#eef0f2" stroke="#1d232b" stroke-width="1"/><path d="M625 74 l-7 9 l8 1 l-6 10" fill="none" stroke="#f2bd0c" stroke-width="3"/><line x1="625" y1="122.64247600996913" x2="655.6417777247591" y2="228.28849561253844" stroke="#4b5560" stroke-width="7" stroke-linecap="round"/><rect x="572" y="102.64247600996913" width="106" height="36" fill="#c3c9cf" stroke="#1d232b" stroke-width="1.4"/><line x1="572" y1="109.64247600996913" x2="678" y2="109.64247600996913" stroke="#1d232b"/><line x1="572" y1="114.64247600996913" x2="678" y2="114.64247600996913" stroke="#1d232b"/><circle cx="625" cy="122.64247600996913" r="5" fill="#fff" stroke="#1d232b"/><path d="M655 110.64247600996913 v18 m-6 -7 l6 8 l6 -8" fill="none" stroke="#e8590c" stroke-width="3"/><circle cx="625" cy="254" r="50" fill="none" stroke="var(--line)" stroke-width="1.5"/><path d="M625.0 204.0 A50 50 0 0 1 625.0 304.0" fill="none" stroke="#e8590c" stroke-width="5"/><line x1="650.2" y1="290.0" x2="657.1" y2="299.9" stroke="var(--ink)" stroke-width="2"/><text x="663.4" y="312.9" text-anchor="middle" class="t-sub t-mono" style="fill:var(--ink)">Sa</text><line x1="625.0" y1="198.0" x2="625.0" y2="210.0" stroke="var(--ink)" stroke-width="2"/><text x="625" y="318" text-anchor="middle" class="t-sub t-mono">PMI</text><line x1="625" y1="254" x2="655.6" y2="228.3" stroke="#4b5560" stroke-width="5"/><circle cx="625" cy="254" r="5" fill="#1d232b"/><circle cx="655.6" cy="228.3" r="5" fill="#fff" stroke="#1d232b"/></g><g><text x="875" y="22" text-anchor="middle" style="font-weight:600;fill:#7a7f87">4ª fase · Scarico</text><text x="837" y="42" text-anchor="middle" class="t-sub" style="fill:var(--muted);font-weight:400">VA chiusa</text><text x="913" y="42" text-anchor="middle" class="t-sub" style="fill:#7a7f87;font-weight:600">VS aperta</text><rect x="813" y="50" width="124" height="22" fill="#cfd5db" stroke="#2b333c" stroke-width="1.4"/><rect x="820" y="72" width="110" height="44.94045155114787" fill="rgba(122,127,135,.45)"/><line x1="819" y1="72" x2="819" y2="194" stroke="#2b333c" stroke-width="5"/><line x1="931" y1="72" x2="931" y2="194" stroke="#2b333c" stroke-width="5"/><path d="M847 44 V68 L838 72 H860 L851 68 V44Z" fill="#8f99a3" stroke="#1d232b" stroke-width="1"/><path d="M899 53 V77 L890 81 H912 L903 77 V53Z" fill="#7a7f87" stroke="#1d232b" stroke-width="1"/><rect x="871" y="46" width="8" height="26" fill="#eef0f2" stroke="#1d232b" stroke-width="1"/><line x1="875" y1="136.94045155114787" x2="837.4122951685637" y2="240.31919426697323" stroke="#4b5560" stroke-width="7" stroke-linecap="round"/><rect x="822" y="116.94045155114787" width="106" height="36" fill="#c3c9cf" stroke="#1d232b" stroke-width="1.4"/><line x1="822" y1="123.94045155114787" x2="928" y2="123.94045155114787" stroke="#1d232b"/><line x1="822" y1="128.94045155114787" x2="928" y2="128.94045155114787" stroke="#1d232b"/><circle cx="875" cy="136.94045155114787" r="5" fill="#fff" stroke="#1d232b"/><path d="M905 144.94045155114787 v-18 m-6 7 l6 -8 l6 8" fill="none" stroke="#7a7f87" stroke-width="3"/><circle cx="875" cy="254" r="50" fill="none" stroke="var(--line)" stroke-width="1.5"/><path d="M875.0 304.0 A50 50 0 0 1 875.0 204.0" fill="none" stroke="#7a7f87" stroke-width="5"/><line x1="885.6" y1="211.3" x2="888.5" y2="199.7" stroke="var(--ink)" stroke-width="2"/><text x="891.2" y="193.0" text-anchor="middle" class="t-sub t-mono" style="fill:var(--ink)">Sc</text><line x1="875.0" y1="198.0" x2="875.0" y2="210.0" stroke="var(--ink)" stroke-width="2"/><text x="875" y="318" text-anchor="middle" class="t-sub t-mono">PMI</text><line x1="875" y1="254" x2="837.4" y2="240.3" stroke="#4b5560" stroke-width="5"/><circle cx="875" cy="254" r="5" fill="#1d232b"/><circle cx="837.4" cy="240.3" r="5" fill="#fff" stroke="#1d232b"/></g><path d="M40 334 v8 H460 v-8" fill="none" stroke="var(--muted)" stroke-width="1.2"/><text x="250.0" y="360" text-anchor="middle" class="t-sub">primo giro (0° → 360°)</text><path d="M540 334 v8 H960 v-8" fill="none" stroke="var(--muted)" stroke-width="1.2"/><text x="750.0" y="360" text-anchor="middle" class="t-sub">secondo giro (360° → 720°)</text></svg></div>
+  <figcaption>Le 4 fasi del ciclo di lavoro. In alto lo stato delle valvole, nel cilindro il verso del pistone (freccia), sotto la posizione della manovella con il mezzo giro di ogni fase (la tacca in alto è il PMS, in basso il PMI). I segni <b>Aa/Ac</b> (apertura e chiusura VA) e <b>Sa/Sc</b> (apertura e chiusura VS) mostrano gli anticipi e i ritardi del ciclo reale; in espansione la scintilla scocca al PMS.</figcaption></figure>
+  <div class="scroll"><table class="phases">
+    <thead><tr><th style="color:#3b82c4">1ª fase · aspirazione</th><th style="color:#1f4e8c">2ª fase · compressione</th><th style="color:#e8590c">3ª fase · espansione</th><th style="color:#7a7f87">4ª fase · scarico</th></tr></thead>
+    <tbody><tr>
+      <td>Il pistone scende e il volume nel cilindro aumenta: si crea una <b>depressione di −0,1 ÷ −0,3 bar</b> rispetto all'esterno. Nel motore a iniezione nel condotto entra la miscela aria-carburante; con l'iniezione diretta entra solo aria. Per riempire al massimo il cilindro la VA si apre <b>10 ÷ 45 °AM prima del PMS</b> e si chiude <b>35 ÷ 90 °AM dopo il PMI</b>.</td>
+      <td>Il pistone sale con le due valvole chiuse. Il volume si riduce <b>da 7 a 18 volte</b> e la pressione di compressione sale fino a circa <b>18 bar</b>; i gas si scaldano a <b>400 ÷ 500 °C</b>. Con l'iniezione diretta e in certe condizioni (bassi regimi, fino a circa 3000 giri/min, e bassa coppia) si comprime solo aria e il carburante è iniettato poco prima dell'accensione.</td>
+      <td>La combustione inizia quando scocca la <b>scintilla</b>. Tra scintilla e combustione completa passa circa <b>1/1000 s</b>. Per questo, secondo il regime, la scintilla scocca <b>da 0° a 40° prima del PMS</b>: così la pressione massima di combustione, <b>30 ÷ 60 bar</b>, si ha <b>subito dopo il PMS (4 ÷ 10 °AM)</b>. I gas caldi si espandono: l'energia termica diventa energia meccanica.</td>
+      <td>La VS si apre <b>40 ÷ 90 °AM prima del PMI</b>, per favorire l'uscita dei gas e alleggerire il pistone. I gas escono a <b>3 ÷ 5 bar</b>, alla velocità del suono e a circa <b>900 °C</b>. Il pistone risalendo spinge fuori i gas rimasti. La VS si chiude <b>solo dopo il PMS</b>, quando la VA è già aperta: questo <b>incrocio valvole</b> sfrutta l'inerzia dei gas, migliora lo svuotamento, raffredda la camera e aiuta il riempimento.</td>
+    </tr></tbody>
+  </table></div>
+  
+  </div>
+
+  <div class="sheet"><div class="prose">
+    <h2>1.5 Caratteristiche del motore Otto</h2>
+    <ul>
+      <li><b>Carburante:</b> benzina oppure gas.</li>
+      <li><b>Miscelazione esterna:</b> la miscela aria-carburante si forma nel collettore di aspirazione, cioè fuori dal cilindro.</li>
+      <li><b>Miscelazione interna:</b> durante l'aspirazione entra solo aria e il carburante è iniettato direttamente nel cilindro, in aspirazione oppure in compressione.</li>
+      <li><b>Accensione comandata</b> da una fonte esterna (la candela).</li>
+      <li><b>Combustione a volume costante:</b> la combustione è così rapida che la pressione sale mentre il volume resta praticamente costante.</li>
+      <li><b>Regolazione della quantità:</b> la potenza si regola variando la quantità di miscela aspirata con la valvola a farfalla (stato di carico).</li>
+    </ul>
+  </div></div>
+
+  <div class="sheet"><div class="prose">
+    <h2>1.6 Il processo di combustione</h2>
+    <p>La combustione avviene in un tempo brevissimo e termina subito dopo il PMS. In questo tempo le molecole di carburante devono trovare l'ossigeno necessario, che viene dall'aria aspirata. L'aria contiene circa il <b>20 % di ossigeno</b>, quindi per bruciare il carburante serve molta aria.</p>
+    <p>La quantità minima di aria per bruciare completamente 1 kg di benzina è il <b>fabbisogno teorico di aria</b>:</p>
+    <div class="formula">14,7 kg di aria per 1 kg di benzina &nbsp;(rapporto stechiometrico 14,7 : 1)</div>
+    <p>Con una densità dell'aria ρ = 1,29 kg/m³ corrispondono 14,7 / 1,29 ≈ <b>11,4 m³</b> di aria.</p>
+    
+    <h3>Combustione completa</h3>
+    <p>L'energia chimica del carburante si trasforma in energia termica. Il carbonio brucia formando anidride carbonica, l'idrogeno formando vapore acqueo:</p>
+    <div class="formula">C + O₂ → CO₂ + energia termica</div>
+    <div class="formula">2 H₂ + O₂ → 2 H₂O + energia termica</div>
+    <p>L'azoto dell'aria non partecipa alla combustione, ma alle alte pressioni e temperature in camera forma <b>ossidi di azoto</b> nocivi (NOx).</p>
+    <h3>Combustione incompleta</h3>
+    <p>Se per 1 kg di benzina ci sono solo <b>13 kg di aria</b> (1 : 13) la miscela è <b>grassa (ricca)</b>: manca ossigeno, una parte del carbonio brucia in modo incompleto e si forma <b>monossido di carbonio (CO)</b>, che è velenoso:</p>
+    <div class="formula">2 C + O₂ → 2 CO + calore</div>
+    <p>Se invece ci sono <b>16 kg di aria</b> (1 : 16) la miscela è <b>magra</b>. Anche in questo caso la combustione può essere incompleta: il carburante può non evaporare in tempo se il volume interno del cilindro non viene raffreddato abbastanza, e il motore può surriscaldarsi.</p>
+  </div></div>
+
+  <div class="sheet"><div class="prose">
+    <h2>1.7 Combustione con battito in testa</h2>
+    <p>Un motore Otto <b>batte in testa</b> quando, insieme alla scintilla della candela, si verifica anche un'<b>autoaccensione</b> della miscela non ancora bruciata. Si formano più fronti di fiamma che si scontrano: la combustione diventa violenta, con velocità di <b>300 ÷ 500 m/s</b> e pressioni molto elevate. Il rumore metallico (“picchiettio”) nasce dalle onde d'urto, che fanno vibrare le parti del motore.</p>
+    <p><b>Conseguenze:</b> carichi meccanici e termici molto elevati sul manovellismo e forte riduzione della potenza.</p>
+    <h3>Cause</h3>
+    <ul>
+      <li>carburanti non idonei;</li>
+      <li>accensione troppo anticipata;</li>
+      <li>ripartizione irregolare della miscela nel cilindro;</li>
+      <li>cattiva cessione di calore, per depositi carboniosi o difetti del raffreddamento;</li>
+      <li>rapporto di compressione troppo alto, per esempio con una guarnizione della testata più sottile dell'originale.</li>
+    </ul>
+    <h3>Battito in fase di accelerazione</h3>
+    <p>Si presenta accelerando a pieno carico a basso regime. È dovuto a un carburante con <b>numero di ottano (RON)</b> insufficiente o a una scorretta regolazione del punto di accensione.</p>
+    <h3>Battito alla velocità massima</h3>
+    <p>Si presenta ad alti regimi e a pieno carico. È dovuto a un carburante con RON insufficiente, oppure con una grande differenza tra RON e MON (<i>sensitivity</i>). È pericoloso perché spesso non si sente: può surriscaldare il motore e causare bruciature delle valvole, della guarnizione della testata e del cielo del pistone, fino al grippaggio.</p>
+    <h3>Accensioni spontanee</h3>
+    <p>Sono causate da particelle incandescenti nella camera di combustione, che accendono la miscela <b>prima</b> della scintilla della candela (<b>accensione anticipata incontrollata</b>).</p>
+  </div></div>
+</section>
+<section class="page" id="p-sim" role="tabpanel" aria-labelledby="t-sim" hidden>
+  <div class="sheet"><div class="prose"><h2>Simulatore: il motore Honda GX160</h2>
+  <p>Sezione animata del motore del laboratorio. Usa <b>Pausa</b>, lo slider dell'angolo e <b>Fase succ.</b> per fermarti in ogni fase; clicca un componente per leggerne la funzione. Sotto il motore trovi il <b>diagramma della distribuzione</b> e il <b>diagramma p–V</b>, teorici e reali, allineati e sincronizzati con la manovella. Il disegno del motore segue il ciclo teorico.</p></div></div>
+  <div class="simwrap"><div class="simmain simgrid">
+  <section class="card stage">
+    <canvas id="eng" width="760" height="800" aria-label="Sezione del motore animata"></canvas>
+<div class="dist">
+      <h3>Ciclo teorico · distribuzione e p–V allineati</h3>
+      <div class="dpair"><canvas id="distT" width="380" height="380" aria-label="Diagramma della distribuzione teorico"></canvas><canvas id="pvT" width="380" height="380" aria-label="Diagramma p-V teorico"></canvas></div>
+      <table class="evt" id="evtT"></table>
+      <h3 style="margin-top:22px">Ciclo reale · distribuzione e p–V allineati</h3>
+      <div class="dpair"><canvas id="distR" width="380" height="380" aria-label="Diagramma della distribuzione reale"></canvas><canvas id="pvR" width="380" height="380" aria-label="Diagramma p-V reale"></canvas></div>
+      <table class="evt" id="evtR"></table>
+      <div class="row" style="justify-content:space-between;margin-top:8px;flex-wrap:wrap;gap:8px"><span id="rtSum" style="font-size:13.5px"></span><button id="rtReset">Valori tipici</button></div>
+      
+    </div>
+
+  </section>
+
+  <aside class="side">
+    <div class="card" id="phaseCard">
+      <div class="phase-head">
+        <div class="phase-num" id="pNum">1</div>
+        <div>
+          <div class="phase-name" id="pName">Aspirazione</div>
+          <div class="phase-stroke" id="pStroke">Pistone dal PMS al PMI</div>
+        </div>
+      </div>
+      <p class="phase-text" id="pText"></p>
+      <div class="valves">
+        <span class="pill" id="vA">Valvola aspirazione</span>
+        <span class="pill" id="vS">Valvola scarico</span>
+        <span class="pill" id="vC">Candela</span>
+      </div>
+      <div class="bar" id="bar">
+        <div style="background:var(--f1)">1 Aspir.</div>
+        <div style="background:var(--f2)">2 Compr.</div>
+        <div style="background:var(--f3)">3 Espans.</div>
+        <div style="background:var(--f4)">4 Scarico</div>
+        <span class="cursor" id="cur"></span>
+      </div>
+      <div class="ticks"><span>0°</span><span>180°</span><span>360°</span><span>540°</span><span>720°</span></div>
+    </div>
+
+    <div class="card">
+      <h3>Comandi</h3>
+      <div class="ctrl">
+        <button class="primary" id="play">⏸ Pausa</button>
+        <button id="prev">⏮ Fase prec.</button>
+        <button id="next">Fase succ. ⏭</button>
+      </div>
+      <div style="margin-top:10px">
+        <div class="row" style="justify-content:space-between;font-size:14px"><span>Angolo di manovella</span><b style="font-family:var(--mono)" id="angLbl">0°</b></div>
+        <input type="range" id="ang" min="0" max="719" step="1" value="0">
+      </div>
+      <div class="row speed" style="margin-top:6px;flex-wrap:wrap">
+        <span style="font-size:14px">Velocità:</span>
+        <button data-s="0.08">molto lenta</button>
+        <button data-s="0.25" class="sel">lenta</button>
+        <button data-s="0.6">media</button>
+        <button data-s="1.5">veloce</button>
+      </div>
+      <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:16px">
+        <label class="chk"><input type="checkbox" id="lab" checked> Etichette</label>
+        <label class="chk"><input type="checkbox" id="gas" checked> Mostra i gas</label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Valori istantanei</h3>
+      <div class="vals">
+        <div><span>Giro albero motore</span><b id="vGiro">1°</b></div>
+        <div><span>Albero a camme</span><b id="vCam">0°</b></div>
+        <div><span>Distanza dal PMS</span><b id="vX">0,0 mm</b></div>
+        <div><span>Volume nel cilindro</span><b id="vV">20,4 cm³</b></div>
+      </div>
+    </div>
+
+    <div class="card info" id="info">
+      <h3>Esplora i componenti</h3>
+      <div class="t" id="iT">Clicca un componente sul disegno</div>
+      <p id="iP">Ogni parte del motore è selezionabile: viene evidenziata e qui compare la sua funzione.</p>
+    </div>
+
+    <div class="card">
+      <h3>Mettiti alla prova</h3>
+      <div class="quiz-q" id="qQ">Il simulatore si ferma in una posizione casuale: riconosci la fase?</div>
+      <div class="ctrl" id="qBtns" style="display:none">
+        <button data-f="0">Aspirazione</button><button data-f="1">Compressione</button>
+        <button data-f="2">Espansione</button><button data-f="3">Scarico</button>
+      </div>
+      <div class="quiz-fb" id="qFb"></div>
+      <div class="row" style="margin-top:6px"><button id="qStart">▶ Nuova domanda</button><span style="font-size:14px;font-family:var(--mono)" id="qScore">Punteggio: 0/0</span></div>
+    </div>
+
+    <div class="card">
+      <h3>Scheda tecnica Honda GX160</h3>
+      <table>
+        <tr><td>Tipo</td><td>4T, monocilindrico, OHV</td></tr>
+        <tr><td>Cilindro</td><td>inclinato 25°, canna in ghisa</td></tr>
+        <tr><td>Alesaggio × corsa</td><td>68 × 45 mm</td></tr>
+        <tr><td>Cilindrata</td><td>163 cm³</td></tr>
+        <tr><td>Rapporto di compressione</td><td>9,0 : 1</td></tr>
+        <tr><td>Potenza netta</td><td>3,6 kW a 3600 giri/min</td></tr>
+        <tr><td>Coppia massima</td><td>10,3 N·m a 2500 giri/min</td></tr>
+        <tr><td>Ø testa valvole (asp./scar.)</td><td>25 / 24 mm</td></tr>
+        <tr><td>Accensione</td><td>magnete transistorizzato</td></tr>
+        <tr><td>Lubrificazione</td><td>a sbattimento</td></tr>
+        <tr><td>Raffreddamento</td><td>ad aria</td></tr>
+      </table>
+      
+    </div>
+  </aside>
+</div>
+  </div>
+</section><section class="page" id="p-comb" role="tabpanel" aria-labelledby="t-comb" hidden>
+  <div class="sheet">
+    <h2>Dosatura della miscela aria-benzina</h2>
+    <p class="prose">Sposta il cursore per cambiare i kg di aria per ogni kg di benzina. Il rapporto stechiometrico del testo è <b>14,7 : 1</b>.</p>
+    <div class="two">
+      <div>
+        <div class="ctl"><label for="afr">Aria per 1 kg di benzina <output id="afrOut">14,7 kg</output></label>
+          <input type="range" id="afr" min="10" max="20" step="0.1" value="14.7"></div>
+        <div class="btnrow" style="margin-top:10px">
+          <button class="btn" data-afr="13">1 : 13 (grassa)</button>
+          <button class="btn" data-afr="14.7">1 : 14,7 (stechiometrica)</button>
+          <button class="btn" data-afr="16">1 : 16 (magra)</button>
+        </div>
+        <div id="afrStatus" class="status" style="margin-top:14px"></div>
+        <div class="kpi">
+          <div><span>Rapporto λ = aria / 14,7</span><b id="kLam">1,00</b></div>
+          <div><span>Volume d'aria (ρ 1,29 kg/m³)</span><b id="kVol">11,4 m³</b></div>
+          <div><span>Benzina per ciclo GX160</span><b id="kFuel">14,3 mg</b></div>
+          <div><span>Benzina a 3600 giri/min</span><b id="kRate">1,55 kg/h</b></div>
+        </div>
+        
+      </div>
+      <figure>
+        <canvas id="cvAfr" width="520" height="300" aria-label="Confronto tra massa di aria e di benzina e prodotti della combustione"></canvas>
+        <figcaption>Barre: massa di aria e di benzina per 1 kg di benzina. Sotto: prodotti principali della combustione secondo il testo.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <div class="sheet">
+    <h2>Battito in testa: andamento della pressione</h2>
+    <div class="two">
+      <figure>
+        <canvas id="cvKnock" width="560" height="320" aria-label="Pressione nel cilindro in funzione dell'angolo di manovella, combustione normale e con battito"></canvas>
+        <figcaption>Andamento <b>qualitativo</b> della pressione vicino al PMS, come nella figura del testo: con il battito la curva sale più in alto e oscilla.</figcaption>
+      </figure>
+      <div>
+        <div class="btnrow" id="knBtns">
+          <button class="btn" aria-pressed="true" data-k="0">Combustione normale</button>
+          <button class="btn" aria-pressed="false" data-k="1">Con battito in testa</button>
+        </div>
+        <div class="tracer" id="knText" style="margin-top:14px"></div>
+        <details><summary>Perché è dannoso</summary><div class="prose"><p>I fronti di fiamma dell'autoaccensione si scontrano con quello partito dalla candela: le onde di pressione sollecitano pistone, biella e albero e surriscaldano la camera. Ne derivano rumore (“picchiettio”), perdita di potenza e, nei casi gravi, bruciature di valvole, guarnizione della testata e cielo del pistone.</p></div></details>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="page" id="p-esercizi" role="tabpanel" aria-labelledby="t-esercizi" hidden>
+  <div class="sheet"><div class="prose"><h2>Esercitazioni</h2><p>Esercizi su tre livelli. Molti si possono verificare con le schede 2 e 3; le soluzioni le correggiamo insieme in classe.</p></div></div>
+  <div id="exercises" class="page"></div>
+  <div class="sheet" id="quiz"></div>
+</section>
+
+</div>
+<script>
+(()=>{
+// ===================== DATI E CINEMATICA =====================
+const BORE=68, STROKE=45, r=STROKE/2, L=76;           // mm (L assunta)
+const EPS=9.0;
+const A_cm2=Math.PI/4*Math.pow(BORE/10,2);            // area pistone cm²
+const VD=A_cm2*STROKE/10;                             // cilindrata cm³ (163,4)
+const VC=VD/(EPS-1);                                  // volume camera cm³
+const HC=VC/A_cm2*10;                                 // altezza equivalente camera mm
+const LIFT=6;                                         // alzata valvole mm (assunta)
+
+// x = distanza spinotto–asse albero (mm); s = distanza dal PMS (mm)
+const xPin=th=>r*Math.cos(th)+Math.sqrt(L*L-Math.pow(r*Math.sin(th),2));
+const sFromTDC=th=>(r+L)-xPin(th);
+const vol=th=>VC+A_cm2*sFromTDC(th)/10;
+const rad=d=>d*Math.PI/180;
+
+function liftIn(deg){deg=((deg%720)+720)%720;return deg<180?LIFT*Math.sin(Math.PI*deg/180):0;}
+function liftEx(deg){deg=((deg%720)+720)%720;return deg>=540?LIFT*Math.sin(Math.PI*(deg-540)/180):0;}
+const phaseOf=deg=>Math.floor((((deg%720)+720)%720)/180);
+
+// pressione qualitativa (bar ass.) – ciclo Otto teorico, n=1,3
+const P0=0.9, n=1.3, P2=P0*Math.pow(EPS,n), P3=P2*3.2;
+function press(deg){
+  deg=((deg%720)+720)%720; const V=vol(rad(deg)), V1=VC+VD;
+  if(deg<180) return P0;
+  if(deg<360) return P0*Math.pow(V1/V,n);
+  if(deg<540){const pe=P3*Math.pow(VC/V,n); if(deg<366){const k=(deg-360)/6;return P2*Math.pow(VC/V,0)*(1-k)+pe*k;} return pe;}
+  return deg<546? (P3*Math.pow(VC/V1,n))*(1-(deg-540)/6)+1.05*((deg-540)/6) : 1.05;
+}
+
+// ===================== TESTI =====================
+const PH=[
+ {n:'Aspirazione',c:'#3b82c4',st:'Pistone dal PMS al PMI · 1° mezzo giro',
+  t:'Il pistone scende e crea una depressione nel cilindro. La valvola di aspirazione è aperta: la miscela aria-benzina preparata dal carburatore entra nel cilindro.',va:1,vs:0,cd:0},
+ {n:'Compressione',c:'#1f4e8c',st:'Pistone dal PMI al PMS · 2° mezzo giro',
+  t:'Entrambe le valvole sono chiuse. Il pistone risale e comprime la miscela nella camera di combustione: il volume diventa 9 volte più piccolo (ε = 9 : 1).',va:0,vs:0,cd:0},
+ {n:'Scoppio ed espansione',c:'#e8590c',st:'Pistone dal PMS al PMI · 3° mezzo giro · FASE UTILE',
+  t:'Al PMS la candela fa scoccare la scintilla: la miscela brucia, la pressione sale e i gas spingono il pistone verso il basso. È l’unica fase che produce lavoro: la biella lo trasmette all’albero motore.',va:0,vs:0,cd:1},
+ {n:'Scarico',c:'#7a7f87',st:'Pistone dal PMI al PMS · 4° mezzo giro',
+  t:'La valvola di scarico è aperta. Il pistone risale e spinge fuori i gas combusti verso la marmitta. Al PMS il ciclo ricomincia: servono 2 giri dell’albero motore per un ciclo completo.',va:0,vs:1,cd:0}
+];
+const COMP={
+ testata:['Testata','Chiude il cilindro in alto. Contiene la camera di combustione, le sedi delle valvole, i condotti e il foro per la candela. Nel GX160 è in lega di alluminio, con alette di raffreddamento.'],
+ camera:['Camera di combustione','Lo spazio che resta sopra il pistone quando è al PMS. Volume ≈ 20,4 cm³: qui la miscela compressa viene accesa dalla candela.'],
+ cilindro:['Cilindro','Tubo in cui scorre il pistone. Nel GX160 ha una canna in ghisa (alesaggio 68 mm) e alette esterne per il raffreddamento ad aria.'],
+ alette:['Alette di raffreddamento','Aumentano la superficie a contatto con l’aria e smaltiscono il calore. Il volano con le pale soffia aria su di esse.'],
+ pistone:['Pistone','Riceve la spinta dei gas e si muove di moto alternato tra PMS e PMI (corsa 45 mm). Trasmette la forza alla biella tramite lo spinotto.'],
+ fasce:['Fasce elastiche','Anelli nelle cave del pistone: 2 fasce di tenuta (compressione) e 1 raschiaolio. Garantiscono la tenuta dei gas e controllano l’olio sulla canna.'],
+ spinotto:['Spinotto','Perno in acciaio (Ø 18 mm) che collega il pistone al piede di biella.'],
+ biella:['Biella','Collega il pistone all’albero motore e trasforma il moto alternato del pistone in moto rotatorio (manovellismo di spinta).'],
+ paletta:['Paletta sbattitore','Sporgenza sul cappello di biella: a ogni giro pesca nell’olio della coppa e lo spruzza sulle parti in movimento (lubrificazione a sbattimento).'],
+ albero:['Albero motore (manovella)','Riceve la spinta dalla biella e ruota. Il raggio di manovella è metà della corsa: 22,5 mm. In 1 ciclo compie 2 giri (720°).'],
+ contrappeso:['Contrappeso','Massa opposta al perno di manovella: bilancia le masse in movimento e riduce le vibrazioni.'],
+ basamento:['Basamento (carter)','Contiene albero motore, albero a camme e olio di lubrificazione. Sostiene il cilindro.'],
+ olio:['Olio motore','Raccolto sul fondo del basamento (0,58 L nel GX160). Lubrifica e raffredda le parti in movimento.'],
+ ingr:['Ingranaggi della distribuzione','L’ingranaggio sull’albero motore ha la metà dei denti di quello sull’albero a camme: rapporto 1 : 2. Così le valvole si aprono una sola volta ogni 2 giri.'],
+ camme:['Albero a camme','Ruota a metà velocità dell’albero motore. Ha due camme (aspirazione e scarico) che sollevano le punterie al momento giusto.'],
+ aste:['Punterie e aste','Le punterie appoggiano sulle camme; le aste trasmettono il movimento fino ai bilancieri in testata. Per questo il motore si dice OHV (valvole in testa).'],
+ bilancieri:['Bilancieri','Leve che invertono il movimento: l’asta spinge in su un’estremità, l’altra spinge in giù la valvola e la apre.'],
+ molle:['Molle delle valvole','Richiudono le valvole quando la camma non spinge più, mantenendole a contatto con la sede.'],
+ va:['Valvola di aspirazione','Apre e chiude il passaggio della miscela fresca. È la più grande (Ø testa 25 mm) per facilitare il riempimento del cilindro.'],
+ vs:['Valvola di scarico','Apre e chiude il passaggio dei gas combusti (Ø testa 24 mm). Lavora molto calda.'],
+ candela:['Candela','Fa scoccare la scintilla tra gli elettrodi e accende la miscela compressa. È alimentata dal magnete di accensione.'],
+ casp:['Condotto di aspirazione','Porta nel cilindro la miscela aria-benzina che arriva dal filtro aria e dal carburatore.'],
+ csca:['Condotto di scarico','Porta i gas combusti verso la marmitta.'],
+ coperchio:['Coperchio bilancieri','Chiude la parte alta della testata e protegge bilancieri e molle. Si toglie per regolare il gioco valvole.']
+};
+
+// ===================== CANVAS MOTORE =====================
+const cv=document.getElementById('eng'), ctx=cv.getContext('2d');
+const W=760,H=800,S=3.0, cx=350, cy=640;
+const yPinTDC=cy-(r+L)*S, CROWN=26, SKIRT=20;
+const yCrownTDC=yPinTDC-CROWN*S;
+const yDeck=yCrownTDC-HC*S;
+const BH=BORE/2*S;                       // semi-alesaggio px
+const camC={x:cx+143,y:cy-40};
+const dGear=Math.hypot(camC.x-cx,camC.y-cy), rg1=dGear/3, rg2=2*dGear/3;
+const RB=30;                             // raggio base camma px
+const IN_X=cx-50, EX_X=cx+50, PR_IN=cx+136, PR_EX=cx+152;
+let paths={}, selected=null, showLab=true, showGas=true;
+
+function fitCanvas(){
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.width=W*dpr; cv.height=H*dpr; cv._dpr=dpr;
+}
+fitCanvas(); addEventListener('resize',fitCanvas);
+
+function reg(name,p){paths[name]=paths[name]||[];paths[name].push(p);}
+function fillStroke(p,fill,stroke,lw,name){
+  ctx.fillStyle=fill; ctx.fill(p);
+  const sel=name&&selected===name;
+  ctx.lineWidth=sel?3:(lw||1.3); ctx.strokeStyle=sel?'#d9480f':(stroke||'#2b333c'); ctx.stroke(p);
+  if(sel){ctx.save();ctx.globalAlpha=.22;ctx.fillStyle='#d9480f';ctx.fill(p);ctx.restore();}
+  if(name) reg(name,p);
+}
+function rectP(x,y,w,h,rr){const p=new Path2D(); if(rr){p.roundRect(x,y,w,h,rr);} else p.rect(x,y,w,h); return p;}
+const P=(cxx,cyy,R,a)=>({x:cxx+R*Math.sin(a),y:cyy-R*Math.cos(a)});   // angolo da "su", orario
+
+function gearPath(c,R,N,ang){
+  const p=new Path2D(), m=R*0.09;
+  for(let i=0;i<=N*4;i++){
+    const a=ang+i/(N*4)*2*Math.PI, k=i%4, rr=(k===1||k===2)?R+m:R-m;
+    const q=P(c.x,c.y,rr,a); i?p.lineTo(q.x,q.y):p.moveTo(q.x,q.y);
+  }
+  p.closePath(); return p;
+}
+function camPath(c,phi,liftFn,offDeg){
+  const p=new Path2D();
+  for(let i=0;i<=180;i++){
+    const al=i/180*2*Math.PI;                      // angolo nel riferimento camma
+    const R=RB+liftFn(2*al*180/Math.PI)*S;
+    const q=P(c.x,c.y,R,al+phi); i?p.lineTo(q.x,q.y):p.moveTo(q.x,q.y);
+  }
+  p.closePath(); return p;
+}
+
+function gasColor(deg){
+  const f=phaseOf(deg), k=((deg%180)+180)%180/180;
+  if(f===0) return `rgba(59,130,196,${0.18+0.30*k})`;
+  if(f===1) return `rgba(31,78,140,${0.45+0.35*k})`;
+  if(f===2) return `rgba(232,89,12,${0.85-0.55*k})`;
+  return `rgba(122,127,135,${0.55-0.30*k})`;
+}
+
+function arrowFlow(x0,y0,x1,y1,t,col){
+  ctx.save(); ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=2.5;
+  for(let i=0;i<3;i++){
+    const u=((t*1.6+i/3)%1), x=x0+(x1-x0)*u, y=y0+(y1-y0)*u, a=Math.atan2(y1-y0,x1-x0);
+    ctx.beginPath(); ctx.moveTo(x-10*Math.cos(a),y-10*Math.sin(a)); ctx.lineTo(x,y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x+6*Math.cos(a),y+6*Math.sin(a));
+    ctx.lineTo(x-4*Math.cos(a)-5*Math.sin(a),y-4*Math.sin(a)+5*Math.cos(a));
+    ctx.lineTo(x-4*Math.cos(a)+5*Math.sin(a),y-4*Math.sin(a)-5*Math.cos(a)); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawEngine(deg,time){
+  paths={};
+  const dpr=cv._dpr; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  const th=rad(deg), phi=-th/2;
+  const lI=liftIn(deg)*S, lE=liftEx(deg)*S;
+  const pin=P(cx,cy,r*S,th);
+  const yPin=cy-xPin(th)*S, yCrown=yPin-CROWN*S;
+  const f=phaseOf(deg);
+
+  // ---- basamento
+  const bas=new Path2D(); bas.roundRect(cx-135,470,400,295,40);
+  fillStroke(bas,'#e4e1da','#2b333c',1.5,'basamento');
+  const oil=new Path2D(); oil.roundRect(cx-120,722,370,36,[0,0,30,30]);
+  fillStroke(oil,'rgba(214,160,40,.55)','#a77d16',1,'olio');
+
+  // ---- ingranaggi distribuzione (dietro)
+  fillStroke(gearPath(camC,rg2,36,phi),'#c9ced4','#59626c',1,'ingr');
+  fillStroke(gearPath({x:cx,y:cy},rg1,18,th),'#b9bfc6','#59626c',1,'ingr');
+
+  // ---- camme
+  fillStroke(camPath(camC,phi,liftEx),'rgba(122,127,135,.85)','#2b333c',1.2,'camme');
+  fillStroke(camPath(camC,phi,liftIn),'rgba(59,130,196,.75)','#2b333c',1.2,'camme');
+  ctx.beginPath(); ctx.arc(camC.x,camC.y,6,0,7); ctx.fillStyle='#2b333c'; ctx.fill();
+
+  // ---- punterie e aste
+  const tapTopI=camC.y-RB-lI-22, tapTopE=camC.y-RB-lE-22;
+  const yRockI=122, yRockE=150;
+  const aste=[[PR_IN,tapTopI,yRockI-lI,lI],[PR_EX,tapTopE,yRockE-lE,lE]];
+  aste.forEach(([x,yt,ytop,l])=>{
+    fillStroke(rectP(x-7,yt,14,22,3),'#9aa2ab','#2b333c',1,'aste');
+    fillStroke(rectP(x-2.5,ytop,5,yt-ytop),'#7d8590','#2b333c',1,'aste');
+  });
+
+  // ---- cilindro + alette
+  const finsL=new Path2D(), finsR=new Path2D();
+  for(let y=yDeck+20;y<470;y+=16){finsL.rect(cx-BH-44,y,32,7);finsR.rect(cx+BH+12,y,14,7);}
+  fillStroke(finsL,'#d3d7dc','#59626c',1,'alette'); fillStroke(finsR,'#d3d7dc','#59626c',1,'alette');
+  const cyl=new Path2D(); cyl.rect(cx-BH-12,yDeck,12,470-yDeck); cyl.rect(cx+BH,yDeck,12,470-yDeck);
+  fillStroke(cyl,'#aeb4bb','#2b333c',1.2,'cilindro');
+  const bore=new Path2D(); bore.rect(cx-BH,yDeck,2*BH,470-yDeck);
+  ctx.fillStyle='#f7f6f2'; ctx.fill(bore);
+
+  // ---- gas nel cilindro
+  const gas=new Path2D(); gas.rect(cx-BH,yDeck,2*BH,yCrown-yDeck);
+  ctx.fillStyle=showGas?gasColor(deg):'#f7f6f2'; ctx.fill(gas); reg('camera',gas);
+  if(selected==='camera'){ctx.lineWidth=3;ctx.strokeStyle='#d9480f';ctx.stroke(gas);}
+
+  // ---- testata
+  const head=new Path2D();
+  head.moveTo(cx-BH-50,yDeck); head.lineTo(cx-BH-50,yDeck-80); head.lineTo(cx+125,yDeck-80);
+  head.lineTo(cx+125,yDeck); head.closePath();
+  fillStroke(head,'#cfd3d8','#2b333c',1.5,'testata');
+  // alette testata
+  const hf=new Path2D(); for(let x=cx-BH-46;x<cx-BH-10;x+=10) hf.rect(x,yDeck-118,5,38);
+  fillStroke(hf,'#d3d7dc','#59626c',1,'alette');
+  // camera (cavità) già nel gas – profilo
+  // condotto aspirazione
+  const ca=new Path2D();
+  ca.moveTo(IN_X-38,yDeck); ca.bezierCurveTo(IN_X-42,yDeck-40,IN_X-60,yDeck-60,cx-BH-50,yDeck-58);
+  ca.lineTo(cx-BH-50,yDeck-80+2); ca.bezierCurveTo(IN_X-40,yDeck-70,IN_X+5,yDeck-55,IN_X+38,yDeck);
+  ca.closePath();
+  fillStroke(ca,(showGas&&f===0)?'rgba(59,130,196,.45)':'#f4f2ec','#2b333c',1.2,'casp');
+  // condotto scarico
+  const cs=new Path2D();
+  cs.moveTo(EX_X-36,yDeck); cs.bezierCurveTo(EX_X-25,yDeck-50,EX_X+20,yDeck-66,cx+125,yDeck-66);
+  cs.lineTo(cx+125,yDeck-36); cs.bezierCurveTo(EX_X+45,yDeck-36,EX_X+40,yDeck-20,EX_X+36,yDeck);
+  cs.closePath();
+  fillStroke(cs,(showGas&&f===3)?'rgba(122,127,135,.55)':'#f4f2ec','#2b333c',1.2,'csca');
+  // tubetto scarico
+  fillStroke(rectP(cx+125,yDeck-66,10,30),'#aeb4bb','#2b333c',1,'csca');
+
+  // ---- valvole
+  function valve(x,headW,l,name,stemTop){
+    const p=new Path2D(), y0=yDeck+l;
+    p.moveTo(x-headW/2,y0); p.lineTo(x+headW/2,y0); p.lineTo(x+headW/2-6,y0-6);
+    p.lineTo(x+4,y0-16); p.lineTo(x+4,stemTop+l); p.lineTo(x-4,stemTop+l); p.lineTo(x-4,y0-16);
+    p.lineTo(x-headW/2+6,y0-6); p.closePath();
+    fillStroke(p,'#8f99a3','#1d232b',1.2,name);
+  }
+  valve(IN_X,25*S,lI,'va',yDeck-112);
+  valve(EX_X,24*S,lE,'vs',yDeck-112);
+
+  // ---- coperchio bilancieri
+  const cov=new Path2D(); cov.moveTo(cx-95,yDeck-80); cov.lineTo(cx-95,96); cov.quadraticCurveTo(cx-95,86,cx-85,86);
+  cov.lineTo(cx+160,86); cov.quadraticCurveTo(cx+172,86,cx+172,98); cov.lineTo(cx+172,yDeck-80); cov.lineTo(cx+125,yDeck-80);
+  cov.lineTo(cx+125,yDeck-80);
+  ctx.save(); ctx.globalAlpha=.55; fillStroke(cov,'#e9e6df','#2b333c',1.2,'coperchio'); ctx.restore();
+  // tubo aste (dal basamento alla testata)
+  ctx.save(); ctx.globalAlpha=.25; fillStroke(rectP(PR_IN-12,yDeck-80,40,470-(yDeck-80)),'#c9ced4','#59626c',1,null); ctx.restore();
+  // ridisegno aste sopra il tubo
+  aste.forEach(([x,yt,ytop])=>{fillStroke(rectP(x-2.5,ytop,5,yt-ytop),'#7d8590','#2b333c',1,'aste');});
+
+  // ---- molle
+  function spring(x,l){
+    const p=new Path2D(), y1=yDeck-80, y2=yDeck-104+l; const N=7;
+    p.moveTo(x-11,y1);
+    for(let i=1;i<=N*2;i++){p.lineTo(x+(i%2?11:-11),y1+(y2-y1)*i/(N*2));}
+    ctx.lineWidth=selected==='molle'?3:2; ctx.strokeStyle=selected==='molle'?'#d9480f':'#3b4550'; ctx.stroke(p);
+    const hit=rectP(x-13,y2,26,y1-y2); reg('molle',hit);
+    fillStroke(rectP(x-14,y2-5,28,5,2),'#59626c','#1d232b',1,'molle');
+  }
+  spring(IN_X,lI); spring(EX_X,lE);
+
+  // ---- bilancieri
+  function rocker(xv,yv,xp,yp,piv,l,dog){
+    const p=new Path2D();
+    const vy=yv+l, py=yp-l;
+    p.moveTo(xv,vy); if(dog){p.lineTo(xv+24,yp-6+l*0.6);} p.lineTo(xp,py);
+    ctx.lineCap='round';
+    ctx.lineWidth=11; ctx.strokeStyle=selected==='bilancieri'?'#d9480f':'#2b333c'; ctx.stroke(p);
+    ctx.lineWidth=7; ctx.strokeStyle='#a7afb8'; ctx.stroke(p);
+    const hit=new Path2D(); hit.rect(Math.min(xv,xp)-6,Math.min(vy,py,yp)-10,Math.abs(xp-xv)+12,Math.abs(vy-py)+30); reg('bilancieri',hit);
+    ctx.beginPath(); ctx.arc(piv,yp+ (dog?0:0),5,0,7); ctx.fillStyle='#1d232b'; ctx.fill();
+  }
+  rocker(IN_X,yDeck-112-0,PR_IN,yRockI,cx+40,lI,true);
+  rocker(EX_X,yDeck-112,PR_EX,yRockE,cx+100,lE,false);
+
+  // ---- candela (laterale, inclinata)
+  const a=Math.PI+0.22;
+  const e0={x:cx-BH+8,y:yDeck-2};
+  ctx.save(); ctx.translate(e0.x,e0.y); ctx.rotate(a);
+  const cp=new Path2D(); cp.rect(0,-5,26,10); cp.rect(26,-9,22,18); cp.rect(48,-7,46,14); cp.rect(94,-4,10,8);
+  const m=ctx.getTransform(); ctx.restore();
+  const cpT=new Path2D(); cpT.addPath(cp,new DOMMatrix([m.a/cv._dpr,m.b/cv._dpr,m.c/cv._dpr,m.d/cv._dpr,m.e/cv._dpr,m.f/cv._dpr]));
+  fillStroke(cpT,'#eef0f2','#1d232b',1.2,'candela');
+  // scintilla
+  if(deg>=352&&deg<=368){
+    ctx.save(); ctx.strokeStyle='#ffd43b'; ctx.lineWidth=3; ctx.shadowColor='#ffb000'; ctx.shadowBlur=14;
+    ctx.beginPath(); ctx.moveTo(e0.x+2,e0.y+2); ctx.lineTo(e0.x+12,e0.y+6); ctx.lineTo(e0.x+6,e0.y+10); ctx.lineTo(e0.x+18,e0.y+14); ctx.stroke(); ctx.restore();
+  }
+
+  // ---- pistone
+  const pist=new Path2D(); pist.rect(cx-BH+2,yCrown,2*BH-4,(CROWN+SKIRT)*S);
+  fillStroke(pist,'#c3c9cf','#1d232b',1.5,'pistone');
+  const fas=new Path2D(); [8,16,26].forEach(o=>fas.rect(cx-BH+1,yCrown+o,2*BH-2,4));
+  fillStroke(fas,'#454e58','#1d232b',.8,'fasce');
+
+  // ---- biella
+  const ang=Math.atan2(pin.x-cx,yPin-pin.y);
+  const bi=new Path2D();
+  const nx=Math.cos(ang), ny=Math.sin(ang);
+  bi.moveTo(cx-9*nx,yPin-9*ny); bi.lineTo(cx+9*nx,yPin+9*ny);
+  bi.lineTo(pin.x+15*nx,pin.y+15*ny); bi.lineTo(pin.x-15*nx,pin.y-15*ny); bi.closePath();
+  bi.moveTo(cx+16,yPin); bi.arc(cx,yPin,16,0,7);
+  bi.moveTo(pin.x+26,pin.y); bi.arc(pin.x,pin.y,26,0,7);
+  fillStroke(bi,'#8a949e','#1d232b',1.3,'biella');
+  // paletta sbattitore (sotto il cappello, direzione asse biella)
+  const dx=pin.x-cx, dy=pin.y-yPin, dl=Math.hypot(dx,dy), ux=dx/dl, uy=dy/dl;
+  const pal=new Path2D(); pal.moveTo(pin.x+ux*24-uy*5,pin.y+uy*24+ux*5); pal.lineTo(pin.x+ux*44-uy*3,pin.y+uy*44+ux*3);
+  pal.lineTo(pin.x+ux*44+uy*3,pin.y+uy*44-ux*3); pal.lineTo(pin.x+ux*24+uy*5,pin.y+uy*24-ux*5); pal.closePath();
+  fillStroke(pal,'#6b747e','#1d232b',1,'paletta');
+  // spinotto
+  const sp=new Path2D(); sp.arc(cx,yPin,9,0,7); fillStroke(sp,'#e3e6e9','#1d232b',1.2,'spinotto');
+
+  // ---- albero motore: contrappeso + manovella
+  const cw=new Path2D(); const cwA=th+Math.PI;
+  for(let i=0;i<=40;i++){const aa=cwA-1.15+2.3*i/40; const q=P(cx,cy,84,aa); i?cw.lineTo(q.x,q.y):cw.moveTo(q.x,q.y);}
+  const q1=P(cx,cy,24,th+Math.PI/2), q2=P(cx,cy,24,th-Math.PI/2); cw.lineTo(q2.x,q2.y); cw.lineTo(q1.x,q1.y); cw.closePath();
+  fillStroke(cw,'#7f8892','#1d232b',1.3,'contrappeso');
+  const web=new Path2D(); const w1=P(cx,cy,22,th-Math.PI/2), w2=P(cx,cy,22,th+Math.PI/2);
+  const w3=P(pin.x,pin.y,20,th+Math.PI/2), w4=P(pin.x,pin.y,20,th-Math.PI/2);
+  web.moveTo(w1.x,w1.y); web.lineTo(w4.x,w4.y); web.lineTo(w3.x,w3.y); web.lineTo(w2.x,w2.y); web.closePath();
+  const wa=new Path2D(); wa.arc(pin.x,pin.y,20,0,7);
+  const wb=new Path2D(); wb.arc(cx,cy,22,0,7);
+  fillStroke(wa,'#9aa3ac','#1d232b',1.3,'albero'); fillStroke(wb,'#9aa3ac','#1d232b',1.3,'albero');
+  fillStroke(web,'#9aa3ac',null,0.01,'albero');
+  const pinP=new Path2D(); pinP.arc(pin.x,pin.y,10,0,7); fillStroke(pinP,'#e3e6e9','#1d232b',1,'albero');
+  const ax=new Path2D(); ax.arc(cx,cy,12,0,7); fillStroke(ax,'#e3e6e9','#1d232b',1.2,'albero');
+
+  // ---- frecce di flusso
+  if(showGas){
+    const t=time;
+    if(f===0) arrowFlow(cx-BH-60,yDeck-60,IN_X-10,yDeck+20,t,'#1d5fa0');
+    if(f===3) arrowFlow(EX_X+10,yDeck+18,cx+150,yDeck-50,t,'#4b5159');
+    if(f===2) { // spinta sul pistone
+      ctx.save(); ctx.strokeStyle='#b8400a'; ctx.fillStyle='#b8400a'; ctx.lineWidth=3;
+      [-50,0,50].forEach(o=>{const x=cx+o,y=yCrown-14; ctx.beginPath();ctx.moveTo(x,y-14);ctx.lineTo(x,y);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(x,y+8);ctx.lineTo(x-6,y);ctx.lineTo(x+6,y);ctx.fill();}); ctx.restore();
+    }
+  }
+
+  // ---- PMS / PMI
+  ctx.save(); ctx.setLineDash([6,5]); ctx.strokeStyle='#5d6670'; ctx.lineWidth=1;
+  [[yCrownTDC,'PMS'],[yCrownTDC+STROKE*S,'PMI']].forEach(([y,t])=>{
+    ctx.beginPath(); ctx.moveTo(cx+BH+30,y); ctx.lineTo(cx+BH+70,y); ctx.stroke();
+    ctx.setLineDash([]); ctx.fillStyle='#1d232b'; ctx.font='600 14px IBM Plex Mono, monospace'; ctx.fillText(t,cx+BH+74,y+5); ctx.setLineDash([6,5]);
+  });
+  // quota corsa
+  ctx.setLineDash([]); const xq=cx+BH+52; ctx.beginPath(); ctx.moveTo(xq,yCrownTDC); ctx.lineTo(xq,yCrownTDC+STROKE*S); ctx.stroke();
+  ctx.save(); ctx.translate(xq-6,yCrownTDC+STROKE*S/2); ctx.rotate(-Math.PI/2); ctx.font='12px IBM Plex Mono, monospace'; ctx.fillStyle='#5d6670'; ctx.textAlign='center'; ctx.fillText('corsa 45 mm',0,0); ctx.restore();
+  ctx.restore();
+
+  // ---- etichette
+  if(showLab){
+    const labs=[
+      ['Candela',e0.x-70,e0.y-16,8,yDeck-100,'L'],
+      ['Condotto aspirazione',cx-BH-30,yDeck-40,8,yDeck-40,'L'],
+      ['Valvola aspirazione',IN_X-14,yDeck-30+lI,8,yDeck+12,'L'],
+      ['Camera di combustione',cx-30,(yDeck+yCrown)/2,8,yDeck+50,'L'],
+      ['Pistone',cx-BH+20,yCrown+40,8,yCrownTDC+110,'L'],
+      ['Biella',(cx+pin.x)/2,(yPin+pin.y)/2,8,cy-110,'L'],
+      ['Albero motore',cx-30,cy+10,8,cy+50,'L'],
+      ['Olio',cx-80,740,8,786,'L'],
+      ['Bilancieri',cx+70,yRockI-lI*0.5,W-8,60,'R'],
+      ['Valvola scarico',EX_X+20,yDeck-40+lE,W-8,yDeck-130,'R'],
+      ['Condotto scarico',cx+120,yDeck-50,W-8,yDeck-60,'R'],
+      ['Aste',PR_EX+3,380,W-8,380,'R'],
+      ['Albero a camme',camC.x+20,camC.y,W-8,camC.y-40,'R'],
+      ['Ingranaggi 1:2',camC.x+60,camC.y+60,W-8,camC.y+100,'R'],
+    ];
+    ctx.save(); ctx.font='500 13px IBM Plex Sans, sans-serif';
+    labs.forEach(([t,ax2,ay,lx,ly,side])=>{
+      const tw=ctx.measureText(t).width;
+      const bx=side==='L'?lx:lx-tw-10, by=ly-10;
+      ctx.strokeStyle='rgba(29,35,43,.6)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(side==='L'?bx+tw+10:bx,ly); ctx.lineTo(ax2,ay); ctx.stroke();
+      ctx.beginPath(); ctx.arc(ax2,ay,2.5,0,7); ctx.fillStyle='#1d232b'; ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,.92)'; ctx.fillRect(bx,by,tw+10,20);
+      ctx.fillStyle='#1d232b'; ctx.fillText(t,bx+5,ly+5);
+    });
+    ctx.restore();
+  }
+}
+
+// ===================== DIAGRAMMI: DISTRIBUZIONE + p–V (teorico e reale) =====================
+// Angolo del ciclo: 0° = PMS inizio aspirazione, 720° = fine scarico (verso orario).
+const TYP={aa:10,ca:40,acc:20,as:40,cs:10};       // valori tipici didattici, NON dati Honda GX160
+let RT={...TYP};
+const EV_T={AA:0,CA:180,ACC:360,AS:540,CS:720};
+const evR=()=>({AA:-RT.aa,CA:180+RT.ca,ACC:360-RT.acc,AS:540-RT.as,CS:720+RT.cs});
+const PCOL=['#3b82c4','#1f4e8c','#e8590c','#7a7f87'];
+const EVNAMES={AA:'Apertura aspirazione',CA:'Chiusura aspirazione',ACC:'Scintilla (accensione)',AS:'Apertura scarico',CS:'Chiusura scarico'};
+function phaseIn(th,ev){ // fase del ciclo per l'angolo th secondo gli eventi ev
+  let t=th; while(t<ev.AA) t+=720; while(t>=ev.AA+720) t-=720;
+  return t<ev.CA?0:t<ev.ACC?1:t<ev.AS?2:3;
+}
+const sdeg=th=>sFromTDC(rad(th));
+function phaseAt(deg,ev){let t=deg; if(t<ev.AA) t+=720; if(t>ev.CS) t-=720; return t<ev.CA?0:t<ev.ACC?1:t<ev.AS?2:3;}
+// --- pressione reale (andamento qualitativo, bar ass.)
+function pressR(deg){
+  const e=evR(); let th=((deg%720)+720)%720;
+  const pClosed=t=>{const Vca=vol(rad(e.CA)), V=vol(rad(t)); const pm=0.95*Math.pow(Vca/V,n);
+    let xb=0; if(t>e.ACC){const z=(t-e.ACC)/70; xb=1-Math.exp(-5*Math.pow(Math.min(z,1.6),3));} return pm*(1+2.8*xb);};
+  if(th>=e.AS){const pAS=pClosed(e.AS); return 1.1+(pAS-1.1)*Math.exp(-(th-e.AS)/20);}
+  if(th<e.CA){ if(th>180) return 0.85+0.10*(th-180)/Math.max(RT.ca,1); return th<40?1.1-0.25*th/40:0.85; }
+  return pClosed(th);
+}
+const pressT=press;
+
+// --- canvas helper
+const DC={distT:null,pvT:null,distR:null,pvR:null};
+Object.keys(DC).forEach(k=>{const c=document.getElementById(k); DC[k]={c,x:c.getContext('2d')};});
+function fitDiag(){const d=Math.min(window.devicePixelRatio||1,2); Object.values(DC).forEach(o=>{o.c.width=380*d;o.c.height=380*d;o.d=d;});}
+fitDiag(); addEventListener('resize',fitDiag);
+
+function evSide(name,a){const s=Math.sin(rad(a)); if(s<-0.05) return 'L'; if(s>0.05) return 'R'; return (name==='AA'||name==='CA')?'L':'R';}
+
+function drawSpiral(o,ev,deg,real){
+  const x=o.x; x.setTransform(o.d,0,0,o.d,0,0); x.clearRect(0,0,380,380);
+  const cx=190, cy=196, R0=62, R1=146, t0=ev.AA, t1=ev.CS;
+  const rS=t=>R0+(R1-R0)*(t-t0)/(t1-t0);
+  const pt=(t,dr=0)=>({x:cx+(rS(t)+dr)*Math.sin(rad(t)), y:cy-(rS(t)+dr)*Math.cos(rad(t))});
+  x.strokeStyle='#d9d5cc'; x.lineWidth=1; x.setLineDash([5,5]); x.beginPath(); x.moveTo(cx,cy-R1-14); x.lineTo(cx,cy+R1+14); x.stroke(); x.setLineDash([]);
+  x.font='600 12px IBM Plex Mono, monospace'; x.fillStyle='#1d232b'; x.textAlign='center';
+  x.fillText('PMS',cx,cy-R1-20); x.fillText('PMI',cx,cy+R1+28);
+  const f=phaseAt(deg,ev), seg=[[ev.AA,ev.CA],[ev.CA,ev.ACC],[ev.ACC,ev.AS],[ev.AS,ev.CS]];
+  seg.forEach(([a,b],i)=>{x.beginPath(); for(let t=a;t<=b;t+=2){const q=pt(Math.min(t,b)); t===a?x.moveTo(q.x,q.y):x.lineTo(q.x,q.y);} const q=pt(b); x.lineTo(q.x,q.y);
+    x.strokeStyle=PCOL[i]; x.globalAlpha=i===f?1:0.35; x.lineWidth=i===f?18:14; x.lineCap='butt'; x.stroke();});
+  x.globalAlpha=1;
+  if(real&&(RT.aa+RT.cs)>0){ // incrocio valvole: entrambe aperte
+    x.strokeStyle='#7048e8'; x.lineWidth=4;
+    [[ev.AA,ev.AA+RT.aa+RT.cs,-13],[720-RT.aa,ev.CS,13]].forEach(([a,b,dr])=>{x.beginPath(); for(let t=a;t<=b;t+=1){const q=pt(t,dr); t===a?x.moveTo(q.x,q.y):x.lineTo(q.x,q.y);} x.stroke();});
+    const q=pt(720,26); x.font='600 11px IBM Plex Sans, sans-serif'; x.fillStyle='#7048e8'; x.textAlign='left'; x.fillText('incrocio',q.x+10,q.y-4); x.textAlign='center';
+  }
+  Object.entries(ev).forEach(([k,a])=>{const q=pt(a); x.beginPath(); x.arc(q.x,q.y,6,0,7); x.fillStyle='#fff'; x.fill(); x.lineWidth=2; x.strokeStyle='#1d232b'; x.stroke();
+    const sd=evSide(k,a); x.font='700 12px IBM Plex Mono, monospace'; x.fillStyle='#1d232b'; x.textAlign=sd==='L'?'right':'left'; x.fillText(k,q.x+(sd==='L'?-10:10),q.y+4);});
+  x.textAlign='center';
+  // lancetta: posizione sulla spirale (gestisce il tratto prima di 0° e dopo 720°)
+  let t=deg; if(t<t0) t+=720; if(t>t1) t-=720; const c=pt(t);
+  x.strokeStyle='#1d232b'; x.lineWidth=2.5; x.beginPath(); x.moveTo(cx,cy); x.lineTo(c.x,c.y); x.stroke();
+  x.beginPath(); x.arc(cx,cy,4,0,7); x.fillStyle='#1d232b'; x.fill();
+  x.beginPath(); x.arc(c.x,c.y,8,0,7); x.fillStyle='#d9480f'; x.fill(); x.lineWidth=3; x.strokeStyle='#fff'; x.stroke();
+  x.font='600 12px IBM Plex Sans, sans-serif'; x.fillStyle='#5d6670'; x.fillText(deg<360?'1° giro':'2° giro',cx,cy+22);
+  x.font='700 13px IBM Plex Sans, sans-serif'; x.fillStyle='#1d232b'; x.textAlign='left'; x.fillText('Distribuzione',8,18); x.textAlign='center';
+}
+
+let PMAX=null;
+function drawPVc(o,pf,ev,deg,real){
+  const x=o.x; x.setTransform(o.d,0,0,o.d,0,0); x.clearRect(0,0,380,380);
+  if(!PMAX){let m=0; for(let a=0;a<720;a+=2) m=Math.max(m,pressT(a)); PMAX=m*1.08;}
+  let pm=PMAX; for(let a=0;a<720;a+=4) pm=Math.max(pm,pf(a)*1.08);
+  const x0=46,y0=336,w=310,h=268, Vmax=VC+VD;
+  const X=V=>x0+(V/Vmax)*w*0.97, Y=p=>y0-Math.sqrt(Math.max(p,0)/pm)*h;
+  x.strokeStyle='#1d232b'; x.lineWidth=1.2; x.beginPath(); x.moveTo(x0,y0-h-8); x.lineTo(x0,y0); x.lineTo(x0+w+8,y0); x.stroke();
+  // linea pressione atmosferica
+  x.strokeStyle='#adb5bd'; x.setLineDash([4,4]); x.beginPath(); x.moveTo(x0,Y(1)); x.lineTo(x0+w,Y(1)); x.stroke(); x.setLineDash([]);
+  x.font='11px IBM Plex Mono, monospace'; x.fillStyle='#868e96'; x.textAlign='center'; x.fillText('p atm',x0+w*0.55,Y(1)-5);
+  x.fillStyle='#5d6670'; x.font='12px IBM Plex Mono, monospace'; x.textAlign='left';
+  x.fillText('p',x0-18,y0-h); x.fillText('V',x0+w+4,y0+16);
+  x.textAlign='center'; x.fillText('Vc',X(VC),y0+16); x.fillText('Vc+Vd',X(Vmax)-10,y0+16);
+  x.strokeStyle='#e9ecef'; x.lineWidth=1; [VC,Vmax].forEach(V=>{x.beginPath(); x.moveTo(X(V),y0); x.lineTo(X(V),y0-h); x.stroke();});
+  x.fillStyle='#5d6670'; x.fillText('PMS',X(VC),y0-h-12); x.fillText('PMI',X(Vmax)-6,y0-h-12);
+  const f=phaseAt(deg,ev);
+  for(let a=ev.AA;a<ev.AA+720;a+=1){const i=phaseIn(a+0.5,ev);
+    x.beginPath(); x.moveTo(X(vol(rad(a))),Y(pf(a))); x.lineTo(X(vol(rad(a+1))),Y(pf(a+1)));
+    x.strokeStyle=PCOL[i]; x.globalAlpha=i===f?1:0.45; x.lineWidth=i===f?3.2:1.8; x.stroke();}
+  x.globalAlpha=1;
+  // punti degli eventi
+  Object.entries(ev).forEach(([k,a])=>{ if(k==='CS'&&!real) return;
+    const px=X(vol(rad(a))), py=Y(pf(a)); x.beginPath(); x.arc(px,py,4.5,0,7); x.fillStyle='#fff'; x.fill(); x.lineWidth=1.8; x.strokeStyle='#1d232b'; x.stroke();
+    const up={AA:-10,CA:-10,ACC:-10,AS:-10,CS:16}[k], dx={AA:14,CA:-14,ACC:16,AS:-16,CS:14}[k];
+    x.font='700 11px IBM Plex Mono, monospace'; x.fillStyle='#1d232b'; x.fillText(real?k:(k==='AA'?'AA·CS':k),px+dx+(k==='AA'&&!real?10:0),py+up);});
+  const px=X(vol(rad(deg))), py=Y(pf(deg));
+  x.beginPath(); x.arc(px,py,7,0,7); x.fillStyle='#d9480f'; x.fill(); x.strokeStyle='#fff'; x.lineWidth=2; x.stroke();
+  x.font='700 13px IBM Plex Sans, sans-serif'; x.fillStyle='#1d232b'; x.textAlign='left'; x.fillText('Diagramma p–V',8,18);
+  x.font='11px IBM Plex Sans, sans-serif'; x.fillStyle='#868e96'; x.fillText('qualitativo · scala delle pressioni compressa',8,34); x.textAlign='center';
+}
+
+// --- tabelle eventi
+function relText(k,v){return {AA:`${v}° prima del PMS`,CA:`${v}° dopo il PMI`,ACC:`${v}° prima del PMS`,AS:`${v}° prima del PMI`,CS:`${v}° dopo il PMS`}[k];}
+const KEYMAP={AA:'aa',CA:'ca',ACC:'acc',AS:'as',CS:'cs'};
+function buildTables(){
+  document.getElementById('evtT').innerHTML='<tr><th>Evento</th><th>Quando</th><th>Angolo ciclo</th></tr>'+
+    Object.entries(EV_T).map(([k,a])=>`<tr data-k="${k}"><td><b>${k}</b> ${EVNAMES[k]}</td><td>${['AA','ACC','CS'].includes(k)?'al PMS':'al PMI'}</td><td class="m">${a}°</td></tr>`).join('');
+  document.getElementById('evtR').innerHTML='<tr><th>Evento</th><th>Valore (°)</th><th>Quando</th><th>Angolo ciclo</th></tr>'+
+    Object.keys(EV_T).map(k=>`<tr data-k="${k}"><td><b>${k}</b> ${EVNAMES[k]}</td><td><input type="number" min="0" max="${{AA:45,CA:90,ACC:40,AS:90,CS:40}[k]}" step="1" value="${RT[KEYMAP[k]]}" data-in="${k}"></td><td class="rel"></td><td class="m ang"></td></tr>`).join('');
+  document.querySelectorAll('#evtR input').forEach(inp=>inp.oninput=()=>{const k=inp.dataset.in, mx=+inp.max;
+    let v=Math.round(+inp.value); if(!isFinite(v)) return; v=Math.max(0,Math.min(mx,v)); RT[KEYMAP[k]]=v; updReal();});
+  updReal();
+}
+function updReal(){
+  const e=evR();
+  document.querySelectorAll('#evtR tr[data-k]').forEach(tr=>{const k=tr.dataset.k; tr.querySelector('.rel').textContent=relText(k,RT[KEYMAP[k]]);
+    let a=e[k]; tr.querySelector('.ang').textContent=(a<0?a+720:a>720?a-720:a)+'°';});
+  document.getElementById('rtSum').innerHTML=
+    `Aspirazione aperta per <b>${RT.aa+180+RT.ca}°</b> · scarico aperto per <b>${RT.as+180+RT.cs}°</b> · incrocio valvole <b>${RT.aa+RT.cs}°</b> · anticipo di accensione <b>${RT.acc}°</b>`;
+}
+document.getElementById('rtReset').onclick=()=>{RT={...TYP}; document.querySelectorAll('#evtR input').forEach(i=>i.value=RT[KEYMAP[i.dataset.in]]); updReal();};
+buildTables();
+function hlRows(id,ev,deg){document.querySelectorAll('#'+id+' tr[data-k]').forEach(tr=>{const a=ev[tr.dataset.k]; const m=(((deg-a)%720)+720)%720; tr.classList.toggle('hot',Math.min(m,720-m)<10);});}
+
+function drawDiagrams(deg){
+  drawSpiral(DC.distT,EV_T,deg,false); drawPVc(DC.pvT,pressT,EV_T,deg,false);
+  const e=evR(); drawSpiral(DC.distR,e,deg,true); drawPVc(DC.pvR,pressR,e,deg,true);
+  hlRows('evtT',EV_T,deg); hlRows('evtR',e,deg);
+}
+
+// ===================== UI =====================
+const $=id=>document.getElementById(id);
+let deg=0, playing=true, speed=0.25, last=performance.now(), tAcc=0, quiz=null, score=[0,0];
+const fmt=(v,d=1)=>v.toFixed(d).replace('.',',');
+
+function updUI(){
+  const f=phaseOf(deg), p=PH[f], hide=quiz&&!quiz.answered;
+  $('pNum').textContent=hide?'?':f+1; $('pNum').style.background=hide?'#5d6670':p.c;
+  $('pName').textContent=hide?'Quale fase è?':p.n; $('pStroke').textContent=hide?'Osserva pistone, valvole e gas':p.st;
+  $('pText').textContent=hide?'Guarda il disegno: dove si sta muovendo il pistone? Quali valvole sono aperte?':p.t;
+  const vaOn=liftIn(deg)>0.05, vsOn=liftEx(deg)>0.05, spark=deg>=352&&deg<=368;
+  $('vA').className='pill'+(vaOn&&!hide?' on':''); $('vA').textContent='Valvola aspirazione: '+(hide?'?':vaOn?'APERTA':'chiusa');
+  $('vS').className='pill'+(vsOn&&!hide?' on':''); $('vS').textContent='Valvola scarico: '+(hide?'?':vsOn?'APERTA':'chiusa');
+  $('vC').className='pill'+(spark&&!hide?' on':''); $('vC').textContent='Candela: '+(hide?'?':spark?'SCINTILLA':'—');
+  $('cur').style.left=`calc(${deg/720*100}% - 1px)`;
+  $('angLbl').textContent=Math.round(deg)+'°'; $('ang').value=Math.round(deg)%720;
+  $('vGiro').textContent=(deg<360?'1°':'2°')+' giro';
+  $('vCam').textContent=Math.round(deg/2)+'°';
+  $('vX').textContent=fmt(sFromTDC(rad(deg)))+' mm';
+  $('vV').textContent=fmt(vol(rad(deg)))+' cm³';
+}
+
+function loop(now){
+  const dt=Math.min(.05,(now-last)/1000); last=now; tAcc+=dt;
+  if(playing&&!quiz) deg=(deg+dt*speed*720)%720;
+  drawEngine(deg,tAcc); drawDiagrams(deg); updUI();
+  requestAnimationFrame(loop);
+}
+
+function setPlay(v){playing=v; $('play').textContent=v?'⏸ Pausa':'▶ Avvia';}
+$('play').onclick=()=>{if(quiz)endQuiz(); setPlay(!playing);};
+$('next').onclick=()=>{if(quiz)endQuiz(); setPlay(false); deg=((phaseOf(deg)+1)%4)*180+90;};
+$('prev').onclick=()=>{if(quiz)endQuiz(); setPlay(false); deg=((phaseOf(deg)+3)%4)*180+90;};
+$('ang').oninput=e=>{if(quiz)endQuiz(); setPlay(false); deg=+e.target.value;};
+document.querySelectorAll('.speed button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.speed button').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); speed=+b.dataset.s;});
+$('lab').onchange=e=>showLab=e.target.checked;
+$('gas').onchange=e=>showGas=e.target.checked;
+
+cv.addEventListener('click',e=>{
+  const rc=cv.getBoundingClientRect(), x=(e.clientX-rc.left)*W/rc.width, y=(e.clientY-rc.top)*H/rc.height;
+  ctx.setTransform(1,0,0,1,0,0);
+  // priorità: parti piccole davanti
+  const order=['candela','va','vs','molle','bilancieri','spinotto','fasce','paletta','biella','albero','contrappeso','pistone','aste','camme','ingr','camera','casp','csca','alette','cilindro','coperchio','testata','olio','basamento'];
+  let hit=null;
+  for(const n of order){ if((paths[n]||[]).some(p=>ctx.isPointInPath(p,x,y))){hit=n;break;} }
+  selected=hit;
+  if(hit){$('iT').textContent=COMP[hit][0]; $('iP').textContent=COMP[hit][1];}
+  else {$('iT').textContent='Clicca un componente sul disegno'; $('iP').textContent='Ogni parte del motore è selezionabile: viene evidenziata e qui compare la sua funzione.';}
+});
+
+// quiz
+function endQuiz(){quiz=null; $('qBtns').style.display='none'; $('qFb').textContent='';}
+$('qStart').onclick=()=>{
+  setPlay(false);
+  let d; do{d=Math.floor(Math.random()*720);}while(Math.abs((d%180)-90)>70);
+  deg=d; quiz={f:phaseOf(d),answered:false};
+  $('qBtns').style.display='flex'; $('qFb').textContent=''; $('qQ').textContent='Angolo di manovella: '+d+'°. Quale fase sta compiendo il motore?';
+};
+document.querySelectorAll('#qBtns button').forEach(b=>b.onclick=()=>{
+  if(!quiz||quiz.answered) return; const ok=+b.dataset.f===quiz.f; quiz.answered=true; score[1]++; if(ok)score[0]++;
+  $('qFb').style.color=ok?'#2b8a3e':'#c92a2a';
+  $('qFb').textContent=ok?'Esatto! '+PH[quiz.f].n+'.':'No: è la fase di '+PH[quiz.f].n.toLowerCase()+'. Osserva valvole e verso del pistone.';
+  $('qScore').textContent=`Punteggio: ${score[0]}/${score[1]}`;
+});
+
+requestAnimationFrame(loop);
+})();
+</script>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const fmt=(v,d=1)=>v.toFixed(d).replace('.',',');
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim()||'#888';
+function prep(cv,w,h){const d=Math.min(window.devicePixelRatio||1,2); if(cv.width!==w*d){cv.width=w*d;cv.height=h*d;} const x=cv.getContext('2d'); x.setTransform(d,0,0,d,0,0); x.clearRect(0,0,w,h); return x;}
+
+/* ================= SCHEDA 4: combustione ================= */
+const STOICH=14.7, RHO=1.29, VD_CM3=163.4;
+function renderAfr(){
+  const R=+$('afr').value, lam=R/STOICH;
+  $('afrOut').textContent=fmt(R)+' kg';
+  $('kLam').textContent=fmt(lam,2);
+  $('kVol').textContent=fmt(R/RHO)+' m³';
+  const air_g=VD_CM3*1e-6*RHO*1000, fuel_mg=air_g/R*1000;
+  $('kFuel').textContent=fmt(fuel_mg)+' mg';
+  $('kRate').textContent=fmt(fuel_mg*30*3600/1e6,2)+' kg/h';
+  const st=$('afrStatus');
+  let cls, txt;
+  if(Math.abs(R-STOICH)<0.25){cls='status'; txt='<b>Miscela stechiometrica.</b> L\'ossigeno basta esattamente a bruciare tutto il carburante: combustione completa, prodotti CO₂ e H₂O.';}
+  else if(R<STOICH){cls='status crit'; txt=`<b>Miscela grassa (ricca).</b> Mancano ${fmt(STOICH-R)} kg di aria per kg di benzina: una parte del carbonio brucia in modo incompleto e si forma <b>monossido di carbonio (CO)</b>, velenoso.`;}
+  else {cls='status warn'; txt=`<b>Miscela magra.</b> Ci sono ${fmt(R-STOICH)} kg di aria in più per kg di benzina. Secondo il testo anche la miscela magra può bruciare in modo incompleto e far surriscaldare il motore.`;}
+  st.className=cls; st.innerHTML=txt;
+  // grafico
+  const x=prep($('cvAfr'),520,300), ink=css('--ink'), mu=css('--muted'), line=css('--line');
+  const x0=150, W=330, sc=W/20;
+  x.font='600 14px IBM Plex Sans, sans-serif'; x.fillStyle=ink; x.textAlign='right';
+  x.fillText('Aria',x0-12,58); x.fillText('Benzina',x0-12,108);
+  x.fillStyle=css('--cool'); x.fillRect(x0,38,R*sc,30);
+  x.fillStyle=css('--warm'); x.fillRect(x0,88,1*sc,30);
+  x.strokeStyle=ink; x.setLineDash([5,4]); x.beginPath(); x.moveTo(x0+STOICH*sc,26); x.lineTo(x0+STOICH*sc,128); x.stroke(); x.setLineDash([]);
+  x.textAlign='left'; x.font='13px IBM Plex Mono, monospace'; x.fillStyle=ink;
+  x.fillText(fmt(R)+' kg',x0+Math.max(R,STOICH)*sc+8,58); x.fillText('1 kg',x0+sc+8,108);
+  x.fillStyle=mu; x.textAlign='center'; x.fillText('14,7 : 1',x0+STOICH*sc,20);
+  x.strokeStyle=line; x.beginPath(); x.moveTo(20,150); x.lineTo(500,150); x.stroke();
+  x.textAlign='left'; x.font='600 13px IBM Plex Sans, sans-serif'; x.fillStyle=mu; x.fillText('PRODOTTI PRINCIPALI',20,176);
+  const prod= R<STOICH-0.25 ? [['CO₂',css('--ink')],['H₂O',css('--cool')],['CO (velenoso)',css('--crit')]] :
+              R>STOICH+0.25 ? [['CO₂',css('--ink')],['H₂O',css('--cool')],['O₂ in eccesso',css('--ok')]] :
+                              [['CO₂',css('--ink')],['H₂O',css('--cool')]];
+  let px=20; x.font='600 16px IBM Plex Sans, sans-serif';
+  prod.forEach(([t,c])=>{const w=x.measureText(t).width+28; x.fillStyle=c; x.globalAlpha=.14; x.fillRect(px,190,w,36); x.globalAlpha=1; x.strokeStyle=c; x.strokeRect(px,190,w,36); x.fillStyle=ink; x.fillText(t,px+14,214); px+=w+12;});
+  x.font='13px IBM Plex Sans, sans-serif'; x.fillStyle=mu; x.fillText('+ azoto (N₂), che non brucia ma ad alta temperatura forma ossidi di azoto (NOx)',20,256);
+}
+$('afr').addEventListener('input',renderAfr);
+document.querySelectorAll('[data-afr]').forEach(b=>b.addEventListener('click',()=>{$('afr').value=b.dataset.afr; renderAfr();}));
+
+let KN=0;
+function renderKnock(){
+  const x=prep($('cvKnock'),560,320), ink=css('--ink'), mu=css('--muted'), line=css('--line');
+  const x0=56,y0=270,w=470,h=220, a0=-60,a1=80;
+  const X=a=>x0+(a-a0)/(a1-a0)*w, Y=p=>y0-p/1.15*h;
+  x.strokeStyle=ink; x.lineWidth=1.2; x.beginPath(); x.moveTo(x0,y0-h-6); x.lineTo(x0,y0); x.lineTo(x0+w+6,y0); x.stroke();
+  x.strokeStyle=line; x.setLineDash([4,4]); x.beginPath(); x.moveTo(X(0),y0); x.lineTo(X(0),y0-h); x.stroke(); x.setLineDash([]);
+  x.fillStyle=mu; x.font='12px IBM Plex Mono, monospace'; x.textAlign='center'; x.fillText('PMS',X(0),y0+16);
+  x.fillText('angolo di manovella [°AM] →',x0+w/2+60,y0+34);
+  x.save(); x.translate(18,y0-h/2); x.rotate(-Math.PI/2); x.fillText('pressione p (qualitativa)',0,0); x.restore();
+  const comp=a=>0.18*Math.exp(-Math.pow(a/38,2))+0.04;
+  const norm=a=>comp(a)+0.62*Math.exp(-Math.pow((a-12)/18,2));
+  const knock=a=>{let p=comp(a)+0.72*Math.exp(-Math.pow((a-9)/15,2)); if(a>4&&a<60) p+=0.22*Math.exp(-(a-4)/14)*Math.sin((a-4)*1.35); return p;};
+  const draw=(f,c,lw)=>{x.beginPath(); for(let a=a0;a<=a1;a+=0.25){const yy=Y(f(a)); a===a0?x.moveTo(X(a),yy):x.lineTo(X(a),yy);} x.strokeStyle=c; x.lineWidth=lw; x.stroke();};
+  draw(norm,css('--cold'),KN?1.6:3);
+  if(KN) draw(knock,css('--crit'),2.4);
+  x.textAlign='left'; x.font='600 13px IBM Plex Sans, sans-serif';
+  x.fillStyle=css('--cold'); x.fillText('combustione normale',X(30),Y(0.42));
+  if(KN){x.fillStyle=css('--crit'); x.fillText('con battito in testa',X(22),Y(0.98));}
+  $('knText').innerHTML=KN?'<b>Battito in testa.</b> Una parte della miscela si accende da sola prima dell\'arrivo del fronte di fiamma: la pressione sale bruscamente e oscilla (onde d\'urto). Cause tipiche: accensione troppo anticipata, carburante con RON insufficiente, depositi carboniosi, rapporto di compressione troppo alto.'
+    :'<b>Combustione normale.</b> Il fronte di fiamma parte dalla candela e attraversa la camera in modo regolare: la pressione sale fino al massimo subito dopo il PMS e poi scende con l\'espansione.';
+}
+$('knBtns').addEventListener('click',e=>{const b=e.target.closest('button'); if(!b) return; KN=+b.dataset.k; $('knBtns').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b)); renderKnock();});
+
+/* ================= SCHEDA 5: esercizi e quiz ================= */
+function buildExercises(){
+    const ex=[
+   {lvl:'b',lab:'Livello base',tit:'Esercizio 1 · Classificare un motore',
+    testo:`<p>Classifica il motore <b>Honda GX160</b> del laboratorio secondo tutti i criteri della sezione 1.1.</p><p>Sai che: funziona a benzina con candela, ha valvole, un solo cilindro, pistone che va su e giù, alette di raffreddamento.</p>`},
+   {lvl:'b',lab:'Livello base',tit:'Esercizio 2 · Giri e gradi di un ciclo',
+    testo:`<p>Quanti gradi di manovella dura un ciclo di un motore a 4 tempi? Quanti giri compie l'albero motore? Quanti gradi dura in media ogni fase nel ciclo teorico?</p>`},
+   {lvl:'b',lab:'Livello base',tit:'Esercizio 3 · Stato delle valvole',
+    testo:`<p>Completa per ogni fase del ciclo teorico: verso del pistone (sale/scende), valvola aperta (VA, VS o nessuna), che cosa succede nel cilindro.</p>`},
+   {lvl:'i',lab:'Livello intermedio',tit:'Esercizio 4 · Durata di apertura delle valvole',
+    testo:`<p>Un motore ha questa fasatura, compresa negli intervalli del testo:</p><ul><li>VA: apertura <b>20°</b> prima del PMS, chiusura <b>50°</b> dopo il PMI;</li><li>VS: apertura <b>50°</b> prima del PMI, chiusura <b>15°</b> dopo il PMS.</li></ul><p>Calcola la durata di apertura delle due valvole in °AM e l'incrocio valvole. Verifica nella scheda 2, inserendo questi valori nella tabella del ciclo reale sotto il motore.</p>`},
+   {lvl:'i',lab:'Livello intermedio',tit:'Esercizio 5 · Fabbisogno di aria',
+    testo:`<p>Un serbatoio contiene <b>5 kg</b> di benzina. Quanti kg di aria servono per bruciarla completamente con la dosatura stechiometrica? A quanti m³ corrispondono con ρ = 1,29 kg/m³?</p>`},
+   {lvl:'i',lab:'Livello intermedio',tit:'Esercizio 6 · Miscela grassa o magra?',
+    testo:`<p>Per due motori si misurano queste dosature: motore A, 13 kg di aria per 1 kg di benzina; motore B, 16 kg di aria per 1 kg di benzina. Calcola λ per ciascuno e indica le conseguenze descritte nel testo.</p>`},
+   {lvl:'a',lab:'Livello avanzato',tit:'Esercizio 7 · Il tempo di combustione e l\'anticipo',
+    testo:`<p>Il testo dice che tra la scintilla e la combustione completa passa circa <b>1/1000 s</b>. Calcola di quanti gradi ruota l'albero motore in questo tempo a <b>3600 giri/min</b> (regime di potenza massima del GX160) e spiega perché la scintilla deve scoccare prima del PMS.</p>`},
+   {lvl:'a',lab:'Livello avanzato',tit:'Esercizio 8 · Benzina per ciclo nel GX160',
+    testo:`<p>Ipotizza che a ogni aspirazione il GX160 (cilindrata 163,4 cm³) si riempia completamente di aria con ρ = 1,29 kg/m³ e che la dosatura sia stechiometrica. Calcola la massa di aria e di benzina per ciclo e il consumo orario a 3600 giri/min. Perché il consumo reale è più basso?</p>`},
+   {lvl:'a',lab:'Livello avanzato',tit:'Esercizio 9 · Guarnizione più sottile e battito',
+    testo:`<p>Nel GX160 (V<sub>d</sub> = 163,4 cm³, ε = 9,0) si monta una guarnizione della testata più sottile, che riduce il volume della camera di 2 cm³. Calcola il nuovo rapporto di compressione e spiega perché aumenta il rischio di battito in testa.</p>`}
+  ];
+  $('exercises').innerHTML=ex.map(e=>`<div class="sheet"><span class="lvl ${e.lvl}">${e.lab}</span><h2>${e.tit}</h2><div class="prose"><h3>Consegna per lo studente</h3>${e.testo}</div></div>`).join('');
+}
+
+function buildQuiz(){
+  const Q=[
+   ['Nel motore a ciclo Otto la combustione è avviata da:',['l\'autoaccensione del gasolio','la candela (accensione comandata)','il calore dei gas di scarico','la pompa di iniezione'],1,'Il motore Otto ha accensione comandata da una fonte esterna, la candela.'],
+   ['Un ciclo di lavoro del motore a 4 tempi si svolge in:',['1 giro dell\'albero motore','2 giri dell\'albero motore (720 °AM)','4 giri dell\'albero motore','mezzo giro'],1,'4 corse del pistone = 2 giri = 720° di angolo di manovella.'],
+   ['Durante l\'aspirazione nel cilindro c\'è:',['una pressione di 3 ÷ 5 bar','una depressione di −0,1 ÷ −0,3 bar','la pressione atmosferica esatta','una pressione di 18 bar'],1,'Il pistone scendendo aumenta il volume e crea una depressione rispetto all\'esterno.'],
+   ['Secondo il testo la valvola di aspirazione si apre:',['al PMI','10 ÷ 45 °AM prima del PMS','40 ÷ 90 °AM prima del PMI','solo dopo il PMS'],1,'L\'anticipo di apertura serve a riempire meglio il cilindro.'],
+   ['La pressione massima di combustione si raggiunge:',['al PMI','subito dopo il PMS (4 ÷ 10 °AM)','40° prima del PMS','durante lo scarico'],1,'Per questo la scintilla scocca prima del PMS, da 0° a 40° secondo il regime.'],
+   ['L\'incrocio valvole è il periodo in cui:',['entrambe le valvole sono chiuse','VA e VS sono aperte insieme, intorno al PMS di fine scarico','scocca la scintilla','il pistone è fermo al PMI'],1,'La VS chiude dopo il PMS quando la VA è già aperta.'],
+   ['Il fabbisogno teorico di aria per 1 kg di benzina è:',['1 kg','10 kg','14,7 kg','20 kg'],2,'Rapporto stechiometrico 14,7 : 1.'],
+   ['Con 13 kg di aria per 1 kg di benzina la miscela è:',['magra','stechiometrica','grassa, con formazione di CO','senza combustione'],2,'Manca ossigeno: una parte del carbonio forma monossido di carbonio, velenoso.'],
+   ['Il battito in testa è dovuto a:',['un\'autoaccensione della miscela incombusta','una scintilla troppo debole','una valvola rimasta aperta','troppo olio nella coppa'],0,'Più fronti di fiamma si scontrano e la pressione sale bruscamente.'],
+   ['Quale di queste è una causa di battito in testa citata nel testo?',['accensione troppo ritardata','carburante con RON insufficiente','filtro aria nuovo','rapporto di compressione basso'],1,'Anche l\'accensione troppo anticipata e il rapporto di compressione troppo alto sono cause.'],
+   ['Il GX160 regola la distribuzione con:',['albero a camme in testa e cinghia','albero a camme nel basamento, aste e bilancieri (OHV)','valvole laterali senza camme','iniezione diretta'],1,'Gli ingranaggi 1 : 2 comandano l\'albero a camme; aste e bilancieri aprono le valvole.']
+  ];
+  const box=$('quiz'); let done=0, ok=0;
+  box.innerHTML=`<h2>Quiz finale</h2><p class="prose">${Q.length} domande. Clicca una risposta: la correzione compare subito.</p>`+
+    Q.map((q,i)=>`<div class="q" data-i="${i}"><p>${i+1}. ${q[0]}</p><div class="opts">${q[1].map((o,j)=>`<button type="button" data-j="${j}">${o}</button>`).join('')}</div><div class="qfb" hidden></div></div>`).join('')+
+    `<div class="btnrow" style="margin-top:12px"><span class="score" id="qsc"></span><button class="btn" id="qReset" type="button">Ricomincia</button></div>`;
+  const upd=()=>{$('qsc').textContent=done?`Punteggio: ${ok} / ${done} risposte date su ${Q.length}`:'';};
+  box.querySelectorAll('.q').forEach(el=>el.addEventListener('click',e=>{const b=e.target.closest('button'); if(!b||b.disabled) return; const q=Q[+el.dataset.i], j=+b.dataset.j;
+    el.querySelectorAll('button').forEach((x,k)=>{x.disabled=true; if(k===q[2]) x.classList.add('ok');}); if(j!==q[2]) b.classList.add('ko'); else ok++; done++;
+    const fb=el.querySelector('.qfb'); fb.hidden=false; fb.innerHTML=`<b>${j===q[2]?'Corretto.':'Non corretto.'}</b> ${q[3]}`; upd();}));
+  $('qReset').addEventListener('click',buildQuiz); upd();
+}
+
+/* ================= schede, tema ================= */
+const TABS=['teoria','sim','comb','esercizi']; let active='teoria';
+function show(t,push){ if(!TABS.includes(t)) t='teoria'; active=t; TABS.forEach(k=>{$('p-'+k).hidden=k!==t; $('t-'+k).setAttribute('aria-selected',k===t);});
+  if(push){try{history.replaceState(null,'','#'+t);}catch(e){location.hash=t;}}
+  if(t==='comb'){renderAfr(); renderKnock();} }
+document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>show(b.dataset.tab,true)));
+addEventListener('hashchange',()=>show(location.hash.slice(1),false));
+buildExercises(); buildQuiz();
+show(location.hash.slice(1)||'teoria',false);
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>show(active,false));
+(function(){const root=document.documentElement, b=$('bTheme');
+  const cur=()=>root.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+  const lab=()=>{b.textContent=cur()==='dark'?'Tema chiaro':'Tema scuro';};
+  try{const sv=localStorage.getItem('tema'); if(sv==='dark'||sv==='light') root.setAttribute('data-theme',sv);}catch(e){}
+  b.addEventListener('click',()=>{const n=cur()==='dark'?'light':'dark'; root.setAttribute('data-theme',n); try{localStorage.setItem('tema',n);}catch(e){} lab(); show(active,false);});
+  lab();})();
+})();
+
+</script>
+
+</body></html>
