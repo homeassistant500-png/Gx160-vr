@@ -2,7 +2,7 @@
 
 Simulatore didattico in realtà virtuale del motore **Honda GX160** (monocilindrico 4 tempi OHV), da usare con il visore **Meta Quest 2 / 3 / 3S**. È pensato per la lezione di classe terza sul funzionamento del motore a quattro tempi (ciclo Otto teorico).
 
-**Prof. Giuseppe Fumuso** — Meccatronica, IIS "Orso Mario Corbino", Partinico (PA)
+**Prof. Giuseppe Fumuso** — Meccatronica
 
 ▶ **Apri il simulatore:** https://homeassistant500-png.github.io/Gx160-vr/
 
