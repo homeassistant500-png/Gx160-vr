@@ -8,6 +8,8 @@ Simulatore didattico in realtà virtuale del motore **Honda GX160** (monocilindr
 
 📘 **Dispensa per lo studio:** https://homeassistant500-png.github.io/Gx160-vr/dispensa-motore-4-tempi.html
 
+🖥️ **Simulatore 3D per PC e LIM:** https://homeassistant500-png.github.io/Gx160-vr/GX160-simulatore-3D.html
+
 ---
 
 ## Cosa si può fare
@@ -36,7 +38,23 @@ Contiene quattro schede:
 
 Nel visore, il pulsante **DISPENSA** del pannello dei comandi apre un secondo pannello alla destra del banco con la **teoria** (sezioni 1.1–1.7, a pagine) e il **quiz**. Il pulsante **APRI LA DISPENSA COMPLETA** esce dalla realtà virtuale e apre questa pagina nel browser del Quest; con «indietro» si torna al simulatore.
 
-## Come si apre il simulatore
+## Simulatore 3D per PC e LIM
+
+La versione per lo schermo del simulatore si apre da PC o dalla LIM, senza visore:
+
+https://homeassistant500-png.github.io/Gx160-vr/GX160-simulatore-3D.html
+
+- **Modello 3D** del GX160 da ruotare con il trascinamento e ingrandire con la rotellina; viste preimpostate: insieme, cilindro, distribuzione, manovellismo.
+- **Spaccato** (vetro, sezione, solido) e **isolamento** dei gruppi di componenti: manovellismo, distribuzione, accensione, lubrificazione.
+- **Ciclo Otto teorico** guidato dall'angolo di manovella 0–720°: valvole, scintilla al PMS, gas colorati; clic sulla striscia del ciclo per saltare a una fase.
+- **Pannelli in tempo reale:** fase con la spiegazione, angolo, distanza dal PMS, volume nel cilindro, stato di valvole e candela, fasatura teorica e diagramma p–V qualitativo.
+- **Tour automatico:** se nessuno tocca la pagina il simulatore si presenta da solo; un clic prende il controllo e dopo 25 s di inattività il tour riparte.
+- Pulsante **INGLESE** per mostrare i termini tecnici anche in inglese.
+- **Tasti:** spazio pausa · ← → ±15° · ↑ ↓ velocità · 1–4 viste · H nasconde i pannelli.
+
+Il file funziona anche **senza Internet**: basta scaricare `GX160-simulatore-3D.html` e aprirlo con un doppio clic sul PC della LIM.
+
+## Come si apre il simulatore per visore
 
 1. Sul visore apri **Meta Quest Browser**.
 2. Digita l'indirizzo del simulatore (conviene salvarlo nei preferiti).
@@ -98,6 +116,7 @@ Il pulsante **RIMETTI SUL TAVOLO** del pannello riporta il motore sul banco, nel
 | File | Contenuto |
 |---|---|
 | `index.html` | Il simulatore per visore in un unico file (circa 770 KB), senza collegamenti esterni |
+| `GX160-simulatore-3D.html` | Il simulatore 3D per PC e LIM in un unico file (circa 810 KB), utilizzabile anche senza Internet |
 | `dispensa-motore-4-tempi.html` | La dispensa interattiva per lo studio (versione per gli studenti, senza le soluzioni degli esercizi) |
 | `README.md` | Questa pagina |
 
@@ -108,7 +127,7 @@ Per aggiornare un file basta caricarne la nuova versione con lo stesso nome con 
 Fa parte della lezione sul motore a 4 tempi insieme a:
 
 - simulatore 2D;
-- simulatore 3D per la LIM (con tour automatico e video);
+- simulatore 3D per la LIM (pubblicato qui) e video del tour;
 - dispensa per gli alunni (pubblicata qui) e dispensa per il docente;
 - presentazione.
 
