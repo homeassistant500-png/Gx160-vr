@@ -18,6 +18,9 @@ Simulatore didattico in realtà virtuale del motore **Honda GX160** (monocilindr
 - Seguire il **ciclo Otto teorico** guidato dall'angolo di manovella (0–720°): aspirazione, compressione, scoppio ed espansione, scarico.
 - Osservare le **valvole** che si aprono e si chiudono, la **scintilla** al PMS e i **gas colorati** nel cilindro.
 - Seguire la **miscela aria-benzina** nel **carburatore**: l'aria (bianca) entra dal filtro, nel diffusore (venturi) aspira la benzina dal getto collegato alla vaschetta a galleggiante, la miscela (azzurra, con le goccioline gialle di benzina) passa la valvola a farfalla, percorre il condotto di aspirazione ed entra nel cilindro quando la valvola di aspirazione è aperta.
+- Vedere i **gas di scarico** (grigi) che escono dal cilindro durante lo scarico, attraversano la marmitta ed escono dal terminale come fumo che sale.
+- Vedere la **lubrificazione a sbattimento**: a ogni giro la paletta della biella entra nell'olio del basamento, l'olio fa l'onda e schizza nel carter.
+- Vedere la **benzina nel serbatoio** che scende nel tubo fino alla vaschetta del carburatore, e la **candela** con l'elettrodo centrale e l'**elettrodo di massa**.
 - Vedere i due **cuscinetti di banco** a sfere che sostengono l'albero motore: anello esterno fermo nel carter, anello interno che gira con l'albero, sfere nella gabbia.
 - Aprire il motore con lo **spaccato**: vetro, sezione, solido.
 - **Isolare** i gruppi di componenti: manovellismo, distribuzione, accensione, lubrificazione, alimentazione (carburatore e miscela).
@@ -132,7 +135,7 @@ Il pulsante **RIMETTI SUL TAVOLO** del pannello riporta il motore sul banco, nel
 - diagramma p–V **qualitativo** (adiabatiche con γ = 1,4, combustione istantanea a volume costante), senza valori di pressione;
 - forme esterne di carter, serbatoio, filtro, marmitta, condotti e profilo delle camme schematiche: nessuna loro misura compare nei pannelli;
 - carburatore schematico (diffusore, getto, vaschetta con galleggiante, farfalla e starter): Honda non pubblica le sue quote; la farfalla è disegnata parzialmente aperta e lo starter aperto;
-- la miscela si muove solo durante l'aspirazione e il suo moto non è in scala; i cuscinetti sono disegnati uno nel basamento (lato volano) e uno nel coperchio (lato PTO), con 9 sfere.
+- la miscela si muove solo durante l'aspirazione e il suo moto non è in scala; anche i gas di scarico, gli schizzi d'olio e la benzina nel tubo sono rappresentazioni qualitative; i cuscinetti sono disegnati uno nel basamento (lato volano) e uno nel coperchio (lato PTO), con 9 sfere.
 
 ## File del repository
 
