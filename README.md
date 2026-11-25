@@ -14,11 +14,13 @@ Simulatore didattico in realtà virtuale del motore **Honda GX160** (monocilindr
 
 ## Cosa si può fare
 
-- Vedere il motore appoggiato sul **banco del laboratorio virtuale** (parte a grandezza doppia; si può portare in **scala reale 1:1** o a ×3), prenderlo in mano e girarlo.
+- Vedere il motore appoggiato sul **banco del laboratorio virtuale** (parte a grandezza doppia; si può portare in **scala reale 1:1** o a ×3), prenderlo in mano, girarlo e cambiarne la dimensione, anche **con due mani** o **con le mani senza controller**.
 - Seguire il **ciclo Otto teorico** guidato dall'angolo di manovella (0–720°): aspirazione, compressione, scoppio ed espansione, scarico.
 - Osservare le **valvole** che si aprono e si chiudono, la **scintilla** al PMS e i **gas colorati** nel cilindro.
+- Seguire la **miscela aria-benzina** nel **carburatore**: l'aria (bianca) entra dal filtro, nel diffusore (venturi) aspira la benzina dal getto collegato alla vaschetta a galleggiante, la miscela (azzurra, con le goccioline gialle di benzina) passa la valvola a farfalla, percorre il condotto di aspirazione ed entra nel cilindro quando la valvola di aspirazione è aperta.
+- Vedere i due **cuscinetti di banco** a sfere che sostengono l'albero motore: anello esterno fermo nel carter, anello interno che gira con l'albero, sfere nella gabbia.
 - Aprire il motore con lo **spaccato**: vetro, sezione, solido.
-- **Isolare** i gruppi di componenti: manovellismo, distribuzione, accensione, lubrificazione.
+- **Isolare** i gruppi di componenti: manovellismo, distribuzione, accensione, lubrificazione, alimentazione (carburatore e miscela).
 - Leggere dal **pannello di comando** i valori in tempo reale: fase, angolo, distanza dal PMS, volume nel cilindro, stato di valvole e candela, diagramma p–V qualitativo.
 - Mostrare o nascondere le **etichette** sui componenti e i **termini in inglese**.
 - Studiare la **dispensa direttamente nel visore**: il pulsante **DISPENSA** apre un pannello con la teoria da sfogliare a pagine e il quiz con correzione immediata.
@@ -45,7 +47,8 @@ La versione per lo schermo del simulatore si apre da PC o dalla LIM, senza visor
 https://homeassistant500-png.github.io/Gx160-vr/GX160-simulatore-3D.html
 
 - **Modello 3D** del GX160 da ruotare con il trascinamento e ingrandire con la rotellina; viste preimpostate: insieme, cilindro, distribuzione, manovellismo.
-- **Spaccato** (vetro, sezione, solido) e **isolamento** dei gruppi di componenti: manovellismo, distribuzione, accensione, lubrificazione.
+- **Spaccato** (vetro, sezione, solido) e **isolamento** dei gruppi di componenti: manovellismo, distribuzione, accensione, lubrificazione, alimentazione.
+- **Carburatore** con il percorso della miscela aria-benzina fino al cilindro e **cuscinetti di banco** a sfere sull'albero motore.
 - **Ciclo Otto teorico** guidato dall'angolo di manovella 0–720°: valvole, scintilla al PMS, gas colorati; clic sulla striscia del ciclo per saltare a una fase.
 - **Pannelli in tempo reale:** fase con la spiegazione, angolo, distanza dal PMS, volume nel cilindro, stato di valvole e candela, fasatura teorica e diagramma p–V qualitativo.
 - **Tour automatico:** se nessuno tocca la pagina il simulatore si presenta da solo; un clic prende il controllo e dopo 25 s di inattività il tour riparte.
@@ -56,20 +59,22 @@ Il file funziona anche **senza Internet**: basta scaricare `GX160-simulatore-3D.
 
 ## Come si apre il simulatore per visore
 
-1. Sul visore apri **Meta Quest Browser**.
-2. Digita l'indirizzo del simulatore (conviene salvarlo nei preferiti).
-3. Premi il pulsante rosso **ENTRA NEL VISORE** e consenti l'accesso alla realtà virtuale.
+1. **Prima di indossare il visore**, mettiti in piedi in uno spazio libero. Se il Quest lo chiede, imposta il **confine in modalità «Spazio» (in piedi)** e conferma l'altezza del pavimento. Evita la modalità «Stazionario/seduto»: con quella la pagina non conosce l'altezza del pavimento.
+2. Apri **Meta Quest Browser** e digita l'indirizzo del simulatore (conviene salvarlo nei preferiti).
+3. Guarda dritto davanti a te e **tieni premuto il pulsante Meta** (il tasto con il logo, sul controller destro) per ricentrare la vista.
+4. Premi il pulsante rosso **ENTRA NEL VISORE** e consenti l'accesso alla realtà virtuale.
+5. Se banco e motore ti sembrano troppo grandi o troppo in alto, premi **ADATTA ALTEZZA** nel pannello dei comandi: lo sguardo viene portato all'altezza di una persona in piedi (1,62 m). La pagina lo fa da sola quando il visore non fornisce il pavimento. Per la regolazione fine usa **BANCO PIÙ ALTO ▲** e **BANCO PIÙ BASSO ▼** (passi di 5 cm): l'altezza scelta resta memorizzata sul visore e viene riapplicata a ogni ingresso. Se il banco è di lato o lontano, tieni premuto di nuovo il pulsante Meta per ricentrare.
 
 La pagina funziona solo da un indirizzo **https** (come quello di GitHub Pages): aperta come file dal disco o da un indirizzo http, il visore non entra in realtà virtuale.
 
-Su PC o sulla LIM la stessa pagina si apre in **anteprima**: trascina per ruotare il motore, usa la rotellina per avvicinarti, clicca sul pannello per usare i comandi. Per far vedere alla classe ciò che vede lo studente nel visore, usa la funzione **Trasmetti** del Quest verso la LIM o uno smartphone.
+Su PC o sulla LIM la stessa pagina si apre in **anteprima**: trascina per ruotare il motore, usa la rotellina per avvicinarti, clicca sul pannello per usare i comandi (tasti: spazio pausa, Esc chiude la dispensa). Per far vedere alla classe ciò che vede lo studente nel visore, usa la funzione **Trasmetti** del Quest verso la LIM o uno smartphone.
 
 ## Comandi dei controller
 
 | Comando | Azione |
 |---|---|
 | **Grilletto** | Preme i pulsanti del pannello; un clic sulla striscia del ciclo porta a quell'angolo |
-| **Impugnatura** (tasto laterale) | Afferra il motore per spostarlo e girarlo |
+| **Impugnatura** (tasto laterale) | Afferra il motore per spostarlo e girarlo (il controller vibra quando lo prendi) |
 | **Levetta destra** ← → | Ruota il motore |
 | **Levetta destra** ↑ ↓ | Ingrandisce o rimpicciolisce il motore |
 | **Levetta sinistra** ← → | Avanti o indietro nel ciclo |
@@ -78,7 +83,22 @@ Su PC o sulla LIM la stessa pagina si apre in **anteprima**: trascina per ruotar
 | **X** | Spaccato successivo (vetro → sezione → solido) |
 | **Y** | Isolamento successivo |
 
-Il pulsante **RIMETTI SUL TAVOLO** del pannello riporta il motore sul banco, nella posizione iniziale.
+**Due mani sul motore:** tenendo premute **entrambe le impugnature** e allargando o stringendo le mani il motore si ingrandisce o si rimpicciolisce (da × 0,5 a × 4); ruotando le mani una attorno all'altra si gira.
+
+### Con le mani, senza controller
+
+Il Quest riconosce le mani se il **tracciamento delle mani** è attivo (Impostazioni → Movimento → Mani e controller): basta posare i controller e sollevare le mani davanti al visore.
+
+| Gesto | Azione |
+|---|---|
+| **Pizzico** (pollice + indice) puntando un pulsante | Preme il pulsante; sulla striscia del ciclo porta a quell'angolo |
+| **Pizzico nel vuoto** e movimento della mano | Afferra il motore: lo sposti e lo giri muovendo la mano |
+| **Pizzico con due mani** e allargare / stringere | Ingrandisce / rimpicciolisce il motore |
+| **Pizzico con due mani** e ruotarle | Gira il motore |
+
+Le mani compaiono come puntini sulle articolazioni delle dita.
+
+Il pulsante **RIMETTI SUL TAVOLO** del pannello riporta il motore sul banco, nella posizione iniziale; **ADATTA ALTEZZA** corregge l'altezza dello sguardo (utile anche da seduti).
 
 ## Dati tecnici usati
 
@@ -97,6 +117,7 @@ Il pulsante **RIMETTI SUL TAVOLO** del pannello riporta il motore sul banco, nel
 | Lubrificazione | a sbattimento (paletta sul cappello di biella) |
 | Accensione | magnete transistorizzato |
 | Senso di rotazione | antiorario visto dal lato PTO |
+| Cuscinetti di banco | radiali a sfere 6205 (25 × 52 × 15 mm), ricambio Honda 96100-62050-00 |
 
 **Valori assunti** (non pubblicati da Honda, indicati con * nel simulatore):
 
@@ -109,14 +130,16 @@ Il pulsante **RIMETTI SUL TAVOLO** del pannello riporta il motore sul banco, nel
 
 - fasatura teorica: valvole aperte da punto morto a punto morto, scintilla esattamente al PMS;
 - diagramma p–V **qualitativo** (adiabatiche con γ = 1,4, combustione istantanea a volume costante), senza valori di pressione;
-- forme esterne di carter, serbatoio, filtro, marmitta, condotti e profilo delle camme schematiche: nessuna loro misura compare nei pannelli.
+- forme esterne di carter, serbatoio, filtro, marmitta, condotti e profilo delle camme schematiche: nessuna loro misura compare nei pannelli;
+- carburatore schematico (diffusore, getto, vaschetta con galleggiante, farfalla e starter): Honda non pubblica le sue quote; la farfalla è disegnata parzialmente aperta e lo starter aperto;
+- la miscela si muove solo durante l'aspirazione e il suo moto non è in scala; i cuscinetti sono disegnati uno nel basamento (lato volano) e uno nel coperchio (lato PTO), con 9 sfere.
 
 ## File del repository
 
 | File | Contenuto |
 |---|---|
-| `index.html` | Il simulatore per visore in un unico file (circa 770 KB), senza collegamenti esterni |
-| `GX160-simulatore-3D.html` | Il simulatore 3D per PC e LIM in un unico file (circa 810 KB), utilizzabile anche senza Internet |
+| `index.html` | Il simulatore per visore in un unico file (circa 800 KB), senza collegamenti esterni |
+| `GX160-simulatore-3D.html` | Il simulatore 3D per PC e LIM in un unico file (circa 820 KB), utilizzabile anche senza Internet |
 | `dispensa-motore-4-tempi.html` | La dispensa interattiva per lo studio (versione per gli studenti, senza le soluzioni degli esercizi) |
 | `README.md` | Questa pagina |
 
